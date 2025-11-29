@@ -37,7 +37,33 @@ import { format, isToday, isYesterday } from "date-fns";
 // Theme color
 const THEME_COLOR = "#00b3fd";
 const THEME_DARK = "#0090cc";
-const THEME_LIGHT = "#e6f7ff";
+
+// Different background images for different chats
+const BACKGROUND_IMAGES = [
+  "/images/a.jpg",
+  "/images/236.jpeg",
+  "/images/annie-spratt-zA7I5BtFbvw-unsplash.jpg",
+  "/images/marissa-rodriguez-2mKYEVGA4jE-unsplash.jpg",
+  "/images/math-U5mHl-uACe0-unsplash.jpg",
+  "/images/paper.jpeg",
+  "/images/r.jpeg",
+  "/images/whas.jpeg",
+];
+
+// Message colors - Sender green, Receiver white
+const SENDER_MSG_COLOR = "#DCF8C6";
+const RECEIVER_MSG_COLOR = "#FFFFFF";
+
+// Get background image based on room ID
+const getBackgroundImage = (roomId) => {
+  if (!roomId) return BACKGROUND_IMAGES[0];
+  let hash = 0;
+  for (let i = 0; i < roomId.length; i++) {
+    hash = roomId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % BACKGROUND_IMAGES.length;
+  return BACKGROUND_IMAGES[index];
+};
 
 export default function ChatRoom() {
   const router = useRouter();
@@ -64,6 +90,7 @@ export default function ChatRoom() {
   const [rooms, setRooms] = useState([]);
   const [contextMenu, setContextMenu] = useState(null);
   const [onlineUsers, setOnlineUsers] = useState([]);
+  const [showDeleteChatModal, setShowDeleteChatModal] = useState(false);
 
   const messagesEndRef = useRef(null);
   const localVideoRef = useRef(null);
@@ -73,6 +100,9 @@ export default function ChatRoom() {
   const webrtcManagerRef = useRef(null);
   const callTimerRef = useRef(null);
   const inCallRef = useRef(false);
+
+  // Get background image for this chat
+  const backgroundImage = getBackgroundImage(roomId);
 
   useEffect(() => {
     if (!isAuthenticated || !user) {
@@ -134,6 +164,7 @@ export default function ChatRoom() {
       );
 
       socket.on("incoming-call", ({ fromUserId, username, callType }) => {
+        console.log("📞 Incoming call from:", username, "Type:", callType);
         if (!inCallRef.current) {
           setIncomingCall({ fromUserId, username, callType });
         } else {
@@ -142,14 +173,16 @@ export default function ChatRoom() {
       });
 
       socket.on("call-accepted", ({ fromUserId }) => {
-        console.log("Call accepted by:", fromUserId);
+        console.log("✅ Call accepted by:", fromUserId);
       });
 
       socket.on("call-rejected", () => {
+        console.log("❌ Call rejected");
         endCall();
       });
 
       socket.on("call-ended", () => {
+        console.log("📴 Call ended");
         endCall();
       });
     }
@@ -173,15 +206,23 @@ export default function ChatRoom() {
     scrollToBottom();
   }, [messages]);
 
-  // Play remote audio when stream changes
+  // Play remote audio when stream changes - CRITICAL FOR VOICE CALLS
   useEffect(() => {
     if (remoteStreams.size > 0 && remoteAudioRef.current) {
       const [firstStream] = Array.from(remoteStreams.values());
       if (firstStream) {
+        console.log("🔊 Setting audio stream:", firstStream.getAudioTracks());
         remoteAudioRef.current.srcObject = firstStream;
-        remoteAudioRef.current
-          .play()
-          .catch((e) => console.log("Audio play error:", e));
+
+        const playAudio = async () => {
+          try {
+            await remoteAudioRef.current.play();
+            console.log("✅ Audio playing successfully");
+          } catch (e) {
+            console.log("⚠️ Audio autoplay blocked:", e);
+          }
+        };
+        playAudio();
       }
     }
   }, [remoteStreams]);
@@ -238,7 +279,14 @@ export default function ChatRoom() {
   const handleRemoteStream = (stream, odlocalVideoRefuserId) => {
     console.log(
       "📹 Remote stream received:",
-      stream.getTracks().map((t) => t.kind)
+      stream.getTracks().map((t) => `${t.kind}: ${t.enabled}`)
+    );
+
+    const audioTracks = stream.getAudioTracks();
+    console.log(
+      "🎤 Audio tracks:",
+      audioTracks.length,
+      audioTracks.map((t) => ({ enabled: t.enabled, muted: t.muted }))
     );
 
     setRemoteStreams((prev) => {
@@ -247,12 +295,16 @@ export default function ChatRoom() {
       return newMap;
     });
 
-    // Play audio immediately
-    if (remoteAudioRef.current) {
+    // Play audio immediately - IMPORTANT FOR VOICE CALLS
+    if (remoteAudioRef.current && audioTracks.length > 0) {
+      console.log("🔊 Setting remote audio stream...");
       remoteAudioRef.current.srcObject = stream;
+      remoteAudioRef.current.volume = 1.0;
+
       remoteAudioRef.current
         .play()
-        .catch((e) => console.log("Audio autoplay blocked:", e));
+        .then(() => console.log("✅ Remote audio playing!"))
+        .catch((e) => console.log("⚠️ Audio autoplay blocked:", e));
     }
 
     setTimeout(() => {
@@ -266,6 +318,8 @@ export default function ChatRoom() {
 
   const startCall = async (type) => {
     try {
+      console.log("📞 Starting", type, "call...");
+
       if (!webrtcManagerRef.current) {
         webrtcManagerRef.current = new WebRTCManager();
       }
@@ -273,11 +327,20 @@ export default function ChatRoom() {
       setCallType(type);
 
       const constraints = {
-        audio: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
         video: type === "video",
       };
 
+      console.log("🎤 Requesting media with constraints:", constraints);
       const stream = await webrtcManagerRef.current.getUserMedia(constraints);
+      console.log(
+        "✅ Got local stream:",
+        stream.getTracks().map((t) => t.kind)
+      );
 
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
@@ -304,6 +367,7 @@ export default function ChatRoom() {
       for (const participantId of participants) {
         if (participantId !== user.id) {
           try {
+            console.log("📤 Creating offer for:", participantId);
             const offer = await webrtcManagerRef.current.createOffer(
               participantId,
               handleRemoteStream,
@@ -326,8 +390,8 @@ export default function ChatRoom() {
         }
       }
     } catch (error) {
-      console.error("Error starting call:", error);
-      alert("Failed to access camera/microphone.");
+      console.error("❌ Error starting call:", error);
+      alert("Failed to access camera/microphone. Please check permissions.");
     }
   };
 
@@ -335,12 +399,22 @@ export default function ChatRoom() {
     if (!incomingCall) return;
 
     try {
+      console.log("✅ Accepting call from:", incomingCall.username);
+
       const constraints = {
-        audio: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
         video: incomingCall.callType === "video",
       };
 
       const stream = await webrtcManagerRef.current.getUserMedia(constraints);
+      console.log(
+        "✅ Got local stream for answer:",
+        stream.getTracks().map((t) => t.kind)
+      );
 
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
@@ -381,20 +455,20 @@ export default function ChatRoom() {
         targetUserId: fromUserId,
       });
     } catch (error) {
-      console.error("Error accepting call:", error);
-      alert("Failed to access camera/microphone.");
+      console.error("❌ Error accepting call:", error);
+      alert("Failed to access camera/microphone. Please check permissions.");
     }
   };
 
   const rejectCall = () => {
     if (!incomingCall) return;
-
     const socket = getSocket();
     socket.emit("reject-call", { targetUserId: incomingCall.fromUserId });
     setIncomingCall(null);
   };
 
   const endCall = async () => {
+    console.log("📴 Ending call...");
     const duration = callDuration;
 
     const socket = getSocket();
@@ -451,54 +525,56 @@ export default function ChatRoom() {
 
   const toggleAudio = () => {
     if (webrtcManagerRef.current) {
-      webrtcManagerRef.current.toggleAudio(!audioEnabled);
-      setAudioEnabled(!audioEnabled);
+      const enabled = webrtcManagerRef.current.toggleAudio();
+      setAudioEnabled(enabled);
     }
   };
 
   const toggleVideo = () => {
     if (webrtcManagerRef.current) {
-      webrtcManagerRef.current.toggleVideo(!videoEnabled);
-      setVideoEnabled(!videoEnabled);
+      const enabled = webrtcManagerRef.current.toggleVideo();
+      setVideoEnabled(enabled);
     }
   };
 
   const formatDuration = (seconds) => {
-    const mins = Math.floor(seconds / 60);
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs
-      .toString()
-      .padStart(2, "0")}`;
+    if (hrs > 0) {
+      return `${hrs}:${mins.toString().padStart(2, "0")}:${secs
+        .toString()
+        .padStart(2, "0")}`;
+    }
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const handleDeleteMessage = async (messageId, forEveryone = false) => {
+  const handleDeleteMessage = async (messageId, deleteForEveryone = false) => {
     try {
-      await roomsAPI.deleteMessage(roomId, messageId, forEveryone);
-
-      const socket = getSocket();
-      socket.emit("delete-message", {
-        roomId,
-        messageId,
-        deleteForEveryone: forEveryone,
-      });
-
-      if (forEveryone) {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg._id === messageId
-              ? { ...msg, isDeleted: true, content: "This message was deleted" }
-              : msg
-          )
-        );
-      } else {
+      await roomsAPI.deleteMessage(roomId, messageId, deleteForEveryone);
+      if (!deleteForEveryone) {
         setMessages((prev) => prev.filter((msg) => msg._id !== messageId));
       }
-
       setContextMenu(null);
       setIsSelectionMode(false);
       setSelectedMessages([]);
     } catch (error) {
       console.error("Error deleting message:", error);
+    }
+  };
+
+  const handleDeleteChat = async () => {
+    try {
+      for (const msg of messages) {
+        if (msg.sender === user.id || msg.sender?._id === user.id) {
+          await roomsAPI.deleteMessage(roomId, msg._id, false);
+        }
+      }
+      setMessages([]);
+      setShowDeleteChatModal(false);
+      setShowMenu(false);
+    } catch (error) {
+      console.error("Error deleting chat:", error);
     }
   };
 
@@ -518,11 +594,7 @@ export default function ChatRoom() {
 
   const handleContextMenu = (e, message) => {
     e.preventDefault();
-    setContextMenu({
-      x: e.clientX,
-      y: e.clientY,
-      message,
-    });
+    setContextMenu({ x: e.clientX, y: e.clientY, message });
   };
 
   const toggleMessageSelection = (messageId) => {
@@ -544,9 +616,7 @@ export default function ChatRoom() {
     const groups = {};
     messages.forEach((msg) => {
       const dateKey = formatMessageDate(msg.timestamp);
-      if (!groups[dateKey]) {
-        groups[dateKey] = [];
-      }
+      if (!groups[dateKey]) groups[dateKey] = [];
       groups[dateKey].push(msg);
     });
     return groups;
@@ -556,28 +626,27 @@ export default function ChatRoom() {
 
   return (
     <div className="h-screen flex flex-col">
-      {/* Hidden audio element for remote audio - IMPORTANT FOR AUDIO CALLS */}
+      {/* Hidden audio element for remote audio - CRITICAL FOR VOICE CALLS */}
       <audio
         ref={remoteAudioRef}
         autoPlay
         playsInline
-        style={{ display: "none" }}
+        style={{ position: "absolute", opacity: 0, pointerEvents: "none" }}
       />
 
-      {/* Main Chat Container with Background */}
+      {/* Main Chat Container with Dynamic Background */}
       <div
         className="flex-1 flex flex-col relative"
         style={{
-          backgroundImage: "url('/images/paper.jpeg')",
+          backgroundImage: `url('${backgroundImage}')`,
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
         }}
       >
-        {/* Dark overlay for better text readability */}
-        <div className="absolute inset-0 bg-black/20" />
+        <div className="absolute inset-0 bg-black/30" />
 
-        {/* Header with theme color */}
+        {/* Header */}
         <div
           className="relative z-10 px-4 py-2 flex items-center justify-between shadow-md"
           style={{ backgroundColor: THEME_COLOR }}
@@ -589,78 +658,74 @@ export default function ChatRoom() {
             >
               <FiArrowLeft size={22} />
             </button>
-
-            {/* Profile Avatar */}
             <div
               className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg"
               style={{ backgroundColor: THEME_DARK }}
             >
               {roomInfo?.name?.charAt(0).toUpperCase() || "R"}
             </div>
-
-            <div className="flex-1">
+            <div>
               <h2 className="text-white font-semibold text-base">
                 {roomInfo?.name || "Chat Room"}
               </h2>
               <p className="text-blue-100 text-xs">
                 {onlineUsers.length > 0
-                  ? `${onlineUsers.length} participant${
-                      onlineUsers.length > 1 ? "s" : ""
-                    } online`
-                  : "tap here for contact info"}
+                  ? `${onlineUsers.length} online`
+                  : "tap here for info"}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-1">
-            {!inCall && (
-              <>
-                <button
-                  onClick={() => startCall("video")}
-                  className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"
-                  title="Video Call"
-                >
-                  <FiVideo size={20} />
-                </button>
-                <button
-                  onClick={() => startCall("audio")}
-                  className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"
-                  title="Voice Call"
-                >
-                  <FiPhone size={20} />
-                </button>
-              </>
-            )}
-
+            <button
+              onClick={() => startCall("video")}
+              className="text-white hover:bg-white/10 p-2 rounded-full transition-colors"
+              title="Video Call"
+            >
+              <FiVideo size={20} />
+            </button>
+            <button
+              onClick={() => startCall("audio")}
+              className="text-white hover:bg-white/10 p-2 rounded-full transition-colors"
+              title="Voice Call"
+            >
+              <FiPhone size={20} />
+            </button>
             <div className="relative">
               <button
                 onClick={() => setShowMenu(!showMenu)}
-                className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"
+                className="text-white hover:bg-white/10 p-2 rounded-full transition-colors"
               >
                 <FiMoreVertical size={20} />
               </button>
-
               {showMenu && (
-                <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-xl py-2 w-48 z-50">
+                <div className="absolute right-0 top-12 bg-white rounded-lg shadow-xl py-2 w-48 z-50">
                   <button
                     onClick={() => {
                       setShowCallLogs(true);
                       setShowMenu(false);
                     }}
-                    className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                    className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 flex items-center gap-3"
                   >
-                    <FiClock size={16} />
-                    Call History
+                    <FiClock size={18} /> Call History
                   </button>
                   <button
                     onClick={() => {
-                      setIsSelectionMode(!isSelectionMode);
+                      setIsSelectionMode(true);
                       setShowMenu(false);
                     }}
-                    className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                    className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 flex items-center gap-3"
                   >
-                    <FiCheckCircle size={16} />
-                    Select Messages
+                    <FiCheckCircle size={18} /> Select Messages
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowDeleteChatModal(true);
+                      setShowMenu(false);
+                    }}
+                    className="w-full px-4 py-2 text-left text-red-600 hover:bg-gray-100 flex items-center gap-3"
+                  >
+                    <FiTrash2 size={18} /> Delete Chat
                   </button>
                 </div>
               )}
@@ -668,11 +733,11 @@ export default function ChatRoom() {
           </div>
         </div>
 
-        {/* Selection Mode Actions Bar */}
-        {isSelectionMode && selectedMessages.length > 0 && (
+        {/* Selection mode header */}
+        {isSelectionMode && (
           <div
             className="relative z-10 px-4 py-2 flex items-center justify-between"
-            style={{ backgroundColor: THEME_COLOR }}
+            style={{ backgroundColor: THEME_DARK }}
           >
             <div className="flex items-center gap-3">
               <button
@@ -682,16 +747,17 @@ export default function ChatRoom() {
                 }}
                 className="text-white"
               >
-                <FiX size={22} />
+                <FiX size={24} />
               </button>
-              <span className="text-white">
+              <span className="text-white font-medium">
                 {selectedMessages.length} selected
               </span>
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowForwardModal(true)}
-                className="p-2 text-white hover:bg-white/10 rounded-full"
+                disabled={selectedMessages.length === 0}
+                className="p-2 text-white hover:bg-white/10 rounded-full disabled:opacity-50"
                 title="Forward"
               >
                 <FiCornerUpRight size={20} />
@@ -728,7 +794,6 @@ export default function ChatRoom() {
         {inCall && (
           <div className="relative z-10 flex-1 bg-gray-900 flex flex-col">
             <div className="flex-1 relative">
-              {/* Remote Videos */}
               <div
                 className="w-full h-full grid gap-2 p-2"
                 style={{
@@ -770,8 +835,6 @@ export default function ChatRoom() {
                   </div>
                 )}
               </div>
-
-              {/* Local Video PiP */}
               {callType === "video" && (
                 <video
                   ref={localVideoRef}
@@ -790,8 +853,6 @@ export default function ChatRoom() {
                   className="hidden"
                 />
               )}
-
-              {/* Call Controls */}
               <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-4">
                 <button
                   onClick={toggleAudio}
@@ -805,7 +866,12 @@ export default function ChatRoom() {
                     <FiMicOff size={24} className="text-white" />
                   )}
                 </button>
-
+                <button
+                  onClick={endCall}
+                  className="w-14 h-14 rounded-full bg-red-500 flex items-center justify-center"
+                >
+                  <FiPhoneOff size={24} className="text-white" />
+                </button>
                 {callType === "video" && (
                   <button
                     onClick={toggleVideo}
@@ -820,43 +886,58 @@ export default function ChatRoom() {
                     )}
                   </button>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
 
+        {/* Incoming Call Modal */}
+        {incomingCall && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+            <div className="bg-white rounded-2xl p-8 text-center shadow-2xl">
+              <div className="text-6xl mb-4 animate-pulse">
+                {incomingCall.callType === "video" ? "📹" : "📞"}
+              </div>
+              <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                Incoming {incomingCall.callType} call
+              </h3>
+              <p className="text-gray-600 mb-6">{incomingCall.username}</p>
+              <div className="flex gap-4 justify-center">
                 <button
-                  onClick={endCall}
-                  className="w-14 h-14 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center transition-all"
+                  onClick={rejectCall}
+                  className="w-14 h-14 rounded-full bg-red-500 flex items-center justify-center"
                 >
                   <FiPhoneOff size={24} className="text-white" />
+                </button>
+                <button
+                  onClick={acceptCall}
+                  className="w-14 h-14 rounded-full bg-green-500 flex items-center justify-center animate-pulse"
+                >
+                  <FiPhone size={24} className="text-white" />
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Messages Section */}
+        {/* Messages Area */}
         {!inCall && (
-          <div className="relative z-10 flex-1 overflow-y-auto px-3 py-2">
+          <div className="relative z-10 flex-1 overflow-y-auto px-4 py-2">
             {Object.entries(messageGroups).map(([date, msgs]) => (
               <div key={date}>
-                {/* Date Separator */}
-                <div className="flex justify-center my-3">
-                  <span
-                    className="px-3 py-1 rounded-lg text-xs shadow-sm text-white"
-                    style={{ backgroundColor: THEME_COLOR }}
-                  >
+                <div className="flex justify-center my-4">
+                  <span className="px-3 py-1 bg-white/90 text-gray-600 text-xs rounded-full shadow-sm">
                     {date}
                   </span>
                 </div>
-
-                {/* Messages */}
                 {msgs.map((msg, idx) => {
                   const isSender =
                     msg.sender === user.id || msg.sender?._id === user.id;
                   const isSelected = selectedMessages.includes(msg._id);
-
                   return (
                     <div
                       key={msg._id || idx}
-                      className={`flex mb-1 ${
+                      className={`flex mb-2 ${
                         isSender ? "justify-end" : "justify-start"
                       }`}
                       onClick={() =>
@@ -865,43 +946,39 @@ export default function ChatRoom() {
                       onContextMenu={(e) => handleContextMenu(e, msg)}
                     >
                       <div
-                        className={`relative max-w-[75%] px-3 py-2 rounded-lg shadow-sm ${
-                          isSelected ? "ring-2" : ""
+                        className={`relative max-w-[75%] px-3 py-2 rounded-lg shadow ${
+                          isSelected ? "ring-2 ring-blue-400" : ""
                         }`}
                         style={{
-                          backgroundColor: isSender ? THEME_LIGHT : "white",
-                          borderTopRightRadius: isSender ? 0 : undefined,
-                          borderTopLeftRadius: !isSender ? 0 : undefined,
-                          ...(isSelected && { ringColor: THEME_COLOR }),
+                          backgroundColor: isSender
+                            ? SENDER_MSG_COLOR
+                            : RECEIVER_MSG_COLOR,
+                          borderTopRightRadius: isSender ? 0 : 8,
+                          borderTopLeftRadius: !isSender ? 0 : 8,
                         }}
                       >
-                        {/* Message tail */}
                         <div
                           className="absolute top-0 w-0 h-0"
                           style={
                             isSender
                               ? {
                                   right: -8,
-                                  borderLeft: `8px solid ${THEME_LIGHT}`,
+                                  borderLeft: `8px solid ${SENDER_MSG_COLOR}`,
                                   borderTop: "8px solid transparent",
                                 }
                               : {
                                   left: -8,
-                                  borderRight: "8px solid white",
+                                  borderRight: `8px solid ${RECEIVER_MSG_COLOR}`,
                                   borderTop: "8px solid transparent",
                                 }
                           }
                         />
-
-                        {/* Forwarded label */}
                         {msg.messageType === "forwarded" && (
                           <div className="flex items-center gap-1 text-gray-500 text-xs mb-1 italic">
                             <FiCornerUpRight size={12} />
                             Forwarded
                           </div>
                         )}
-
-                        {/* Sender name for received messages */}
                         {!isSender && (
                           <p
                             className="text-xs font-semibold mb-1"
@@ -910,8 +987,6 @@ export default function ChatRoom() {
                             {msg.senderName || msg.sender?.username}
                           </p>
                         )}
-
-                        {/* Message content */}
                         <p
                           className={`text-sm ${
                             msg.isDeleted
@@ -921,8 +996,6 @@ export default function ChatRoom() {
                         >
                           {msg.content}
                         </p>
-
-                        {/* Time and status */}
                         <div className="flex items-center justify-end gap-1 mt-1">
                           <span className="text-[10px] text-gray-500">
                             {format(new Date(msg.timestamp), "HH:mm")}
@@ -933,8 +1006,6 @@ export default function ChatRoom() {
                             </span>
                           )}
                         </div>
-
-                        {/* Selection checkbox */}
                         {isSelectionMode && (
                           <div
                             className="absolute -left-6 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full border-2 flex items-center justify-center"
@@ -973,7 +1044,6 @@ export default function ChatRoom() {
               >
                 <FiSmile size={24} />
               </button>
-
               <div className="flex-1 relative">
                 <input
                   type="text"
@@ -981,19 +1051,14 @@ export default function ChatRoom() {
                   onChange={(e) => setInputMessage(e.target.value)}
                   placeholder="Type a message"
                   className="w-full px-4 py-2.5 bg-white text-gray-800 rounded-full focus:outline-none shadow-sm"
-                  style={{
-                    focusRing: THEME_COLOR,
-                  }}
                 />
               </div>
-
               <button
                 type="button"
                 className="p-2 text-gray-600 hover:bg-gray-200 rounded-full transition-colors"
               >
                 <FiPaperclip size={22} />
               </button>
-
               <button
                 type="submit"
                 className="w-11 h-11 text-white rounded-full flex items-center justify-center transition-colors shadow-md"
@@ -1014,16 +1079,16 @@ export default function ChatRoom() {
             onClick={() => setContextMenu(null)}
           />
           <div
-            className="fixed bg-white rounded-lg shadow-xl py-2 z-50 min-w-[180px]"
+            className="fixed bg-white rounded-lg shadow-xl py-2 z-50"
             style={{
-              left: Math.min(contextMenu.x, window.innerWidth - 200),
-              top: Math.min(contextMenu.y, window.innerHeight - 200),
+              left: Math.min(contextMenu.x, window.innerWidth - 150),
+              top: Math.min(contextMenu.y, window.innerHeight - 120),
             }}
           >
             <button
               onClick={() => {
-                setIsSelectionMode(true);
                 toggleMessageSelection(contextMenu.message._id);
+                setIsSelectionMode(true);
                 setContextMenu(null);
               }}
               className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 flex items-center gap-3"
@@ -1042,6 +1107,15 @@ export default function ChatRoom() {
               <FiCornerUpRight size={16} />
               Forward
             </button>
+            <button
+              onClick={() =>
+                handleDeleteMessage(contextMenu.message._id, false)
+              }
+              className="w-full px-4 py-2 text-left text-red-600 hover:bg-gray-100 flex items-center gap-3"
+            >
+              <FiTrash2 size={16} />
+              Delete for me
+            </button>
             {(contextMenu.message.sender === user.id ||
               contextMenu.message.sender?._id === user.id) && (
               <button
@@ -1051,59 +1125,80 @@ export default function ChatRoom() {
                 className="w-full px-4 py-2 text-left text-red-600 hover:bg-gray-100 flex items-center gap-3"
               >
                 <FiTrash2 size={16} />
-                Delete for Everyone
+                Delete for everyone
               </button>
             )}
-            <button
-              onClick={() =>
-                handleDeleteMessage(contextMenu.message._id, false)
-              }
-              className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 flex items-center gap-3"
-            >
-              <FiTrash2 size={16} />
-              Delete for Me
-            </button>
           </div>
         </>
       )}
 
       {/* Forward Modal */}
       {showForwardModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl w-80 max-h-[70vh] overflow-hidden shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg w-80 max-h-96 overflow-hidden shadow-2xl">
             <div
-              className="px-4 py-3 flex items-center justify-between"
+              className="p-4 border-b flex items-center justify-between"
               style={{ backgroundColor: THEME_COLOR }}
             >
-              <h3 className="text-white font-semibold">Forward to...</h3>
+              <h3 className="text-white font-semibold">Forward to</h3>
               <button
                 onClick={() => setShowForwardModal(false)}
                 className="text-white"
               >
-                <FiX size={22} />
+                <FiX size={20} />
               </button>
             </div>
-            <div className="overflow-y-auto max-h-80">
+            <div className="overflow-y-auto max-h-72">
               {rooms.map((room) => (
                 <button
                   key={room._id}
                   onClick={() => handleForwardMessages(room._id)}
-                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-100 border-b"
+                  className="w-full p-3 text-left hover:bg-gray-100 flex items-center gap-3 border-b"
                 >
                   <div
                     className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
                     style={{ backgroundColor: THEME_COLOR }}
                   >
-                    {room.name.charAt(0).toUpperCase()}
+                    {room.name?.charAt(0).toUpperCase()}
                   </div>
                   <span className="text-gray-800">{room.name}</span>
                 </button>
               ))}
               {rooms.length === 0 && (
-                <p className="text-center text-gray-500 py-8">
-                  No other rooms available
+                <p className="p-4 text-center text-gray-500">
+                  No other chats available
                 </p>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Chat Modal */}
+      {showDeleteChatModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg w-80 overflow-hidden shadow-2xl">
+            <div className="p-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                Delete Chat?
+              </h3>
+              <p className="text-gray-600 text-sm mb-4">
+                This will delete all your messages in this chat.
+              </p>
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => setShowDeleteChatModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteChat}
+                  className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1111,10 +1206,10 @@ export default function ChatRoom() {
 
       {/* Call Logs Modal */}
       {showCallLogs && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl w-96 max-h-[80vh] overflow-hidden shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg w-80 max-h-96 overflow-hidden shadow-2xl">
             <div
-              className="px-4 py-3 flex items-center justify-between"
+              className="p-4 border-b flex items-center justify-between"
               style={{ backgroundColor: THEME_COLOR }}
             >
               <h3 className="text-white font-semibold">Call History</h3>
@@ -1122,118 +1217,58 @@ export default function ChatRoom() {
                 onClick={() => setShowCallLogs(false)}
                 className="text-white"
               >
-                <FiX size={22} />
+                <FiX size={20} />
               </button>
             </div>
-            <div className="overflow-y-auto max-h-96">
-              {callLogs.map((call) => (
+            <div className="overflow-y-auto max-h-72">
+              {callLogs.map((log) => (
                 <div
-                  key={call._id}
-                  className="px-4 py-3 flex items-center gap-3 border-b hover:bg-gray-50"
+                  key={log._id}
+                  className="p-3 border-b flex items-center gap-3"
                 >
                   <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      call.status === "missed" || call.status === "rejected"
-                        ? "bg-red-100 text-red-500"
-                        : "bg-green-100 text-green-500"
+                    className={`p-2 rounded-full ${
+                      log.status === "missed" ? "bg-red-100" : "bg-green-100"
                     }`}
                   >
-                    {call.callType === "video" ? (
-                      <FiVideo size={20} />
-                    ) : (
-                      <FiPhone size={20} />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-800">
-                      {call.callerName}
-                    </p>
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <span
+                    {log.callType === "video" ? (
+                      <FiVideo
+                        size={18}
                         className={
-                          call.status === "missed" || call.status === "rejected"
+                          log.status === "missed"
                             ? "text-red-500"
                             : "text-green-500"
                         }
-                      >
-                        {call.status === "missed"
-                          ? "Missed"
-                          : call.status === "rejected"
-                          ? "Rejected"
-                          : call.status === "answered"
-                          ? "Answered"
-                          : `${formatDuration(call.duration)}`}
-                      </span>
-                      <span>•</span>
-                      <span>
-                        {format(new Date(call.startTime), "dd/MM HH:mm")}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setShowCallLogs(false);
-                      startCall(call.callType);
-                    }}
-                    className="p-2 rounded-full hover:bg-gray-100"
-                    style={{ color: THEME_COLOR }}
-                  >
-                    {call.callType === "video" ? (
-                      <FiVideo size={20} />
+                      />
                     ) : (
-                      <FiPhone size={20} />
+                      <FiPhone
+                        size={18}
+                        className={
+                          log.status === "missed"
+                            ? "text-red-500"
+                            : "text-green-500"
+                        }
+                      />
                     )}
-                  </button>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-800">
+                      {log.callType === "video" ? "Video Call" : "Voice Call"}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {log.status === "missed"
+                        ? "Missed"
+                        : formatDuration(log.duration || 0)}
+                    </p>
+                  </div>
+                  <span className="text-xs text-gray-400">
+                    {format(new Date(log.createdAt), "dd/MM HH:mm")}
+                  </span>
                 </div>
               ))}
               {callLogs.length === 0 && (
-                <p className="text-center text-gray-500 py-8">
-                  No call history yet
-                </p>
+                <p className="p-4 text-center text-gray-500">No call history</p>
               )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Incoming Call Modal */}
-      {incomingCall && (
-        <div
-          className="fixed inset-0 flex flex-col items-center justify-center z-50"
-          style={{ backgroundColor: THEME_COLOR }}
-        >
-          <div className="text-center mb-8">
-            <div className="w-28 h-28 rounded-full bg-white/20 mx-auto mb-4 flex items-center justify-center text-white text-4xl font-bold animate-pulse">
-              {incomingCall.username.charAt(0).toUpperCase()}
-            </div>
-            <h3 className="text-2xl font-semibold text-white mb-2">
-              {incomingCall.username}
-            </h3>
-            <p className="text-blue-100">
-              {incomingCall.callType === "video"
-                ? "Incoming video call..."
-                : "Incoming voice call..."}
-            </p>
-          </div>
-
-          <div className="flex gap-16">
-            <div className="text-center">
-              <button
-                onClick={rejectCall}
-                className="w-16 h-16 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center mb-2 transition-colors"
-              >
-                <FiPhoneOff size={28} className="text-white" />
-              </button>
-              <span className="text-white text-sm">Decline</span>
-            </div>
-            <div className="text-center">
-              <button
-                onClick={acceptCall}
-                className="w-16 h-16 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center mb-2 transition-colors animate-bounce"
-              >
-                <FiPhone size={28} className="text-white" />
-              </button>
-              <span className="text-white text-sm">Accept</span>
             </div>
           </div>
         </div>
