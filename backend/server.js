@@ -11,10 +11,19 @@ const initializeSocket = require("./socket");
 const app = express();
 const server = http.createServer(app);
 
+// CORS origins
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "https://blue-sea-chat-application.vercel.app",
+  "https://blue-sea-chat-application-git-main-awais68.vercel.app",
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
 // Initialize Socket.IO with CORS
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3000", "http://localhost:3001"],
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -26,7 +35,7 @@ connectDB();
 // Middleware
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://localhost:3001"],
+    origin: allowedOrigins,
     credentials: true,
   })
 );
