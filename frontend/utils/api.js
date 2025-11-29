@@ -66,6 +66,16 @@ export const roomsAPI = {
   getAll: () => api.get("/api/rooms"),
   create: (data) => api.post("/api/rooms", data),
   getMessages: (roomId) => api.get(`/api/rooms/${roomId}/messages`),
+  deleteMessage: (roomId, messageId, forEveryone) =>
+    api.delete(
+      `/api/rooms/${roomId}/messages/${messageId}?deleteForEveryone=${forEveryone}`
+    ),
+  forwardMessage: (roomId, messageId, targetRoomId) =>
+    api.post(`/api/rooms/${roomId}/messages/${messageId}/forward`, {
+      targetRoomId,
+    }),
+  getCallLogs: (roomId) => api.get(`/api/rooms/${roomId}/calls`),
+  createCallLog: (roomId, data) => api.post(`/api/rooms/${roomId}/calls`, data),
 };
 
 export default api;

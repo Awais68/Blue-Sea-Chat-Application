@@ -229,6 +229,19 @@ const initializeSocket = (io) => {
     });
 
     /**
+     * Handle message deletion
+     */
+    socket.on("delete-message", ({ roomId, messageId, deleteForEveryone }) => {
+      if (deleteForEveryone) {
+        // Broadcast to all users in room
+        socket.to(roomId).emit("message-deleted", {
+          messageId,
+          deleteForEveryone: true,
+        });
+      }
+    });
+
+    /**
      * Handle disconnect
      */
     socket.on("disconnect", () => {

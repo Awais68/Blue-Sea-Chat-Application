@@ -1,6 +1,15 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "../contexts/AuthContext";
+import {
+  FiUser,
+  FiMail,
+  FiLock,
+  FiEye,
+  FiEyeOff,
+  FiMessageCircle,
+  FiCheck,
+} from "react-icons/fi";
 
 export default function Signup() {
   const [username, setUsername] = useState("");
@@ -9,6 +18,7 @@ export default function Signup() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const { signup, isAuthenticated } = useAuth();
   const router = useRouter();
@@ -34,6 +44,7 @@ export default function Signup() {
     }
 
     setLoading(true);
+
     const result = await signup(username, email, password);
 
     if (result.success) {
@@ -45,129 +56,156 @@ export default function Signup() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-dark-bg px-4">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-4xl font-extrabold text-white">
-            Create Account
-          </h2>
-          <p className="mt-2 text-center text-sm text-primary-silver">
-            Join our WebRTC chat platform
+    <div className="min-h-screen flex flex-col bg-[#111B21]">
+      {/* WhatsApp Header Bar */}
+      <div className="bg-[#075E54] h-40 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+            <FiMessageCircle size={32} className="text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-white">Create Account</h1>
+        </div>
+      </div>
+
+      {/* Signup Form */}
+      <div className="flex-1 flex items-start justify-center -mt-8 px-4 pb-8">
+        <div className="w-full max-w-md">
+          <div className="bg-[#202C33] rounded-xl shadow-2xl overflow-hidden">
+            <div className="p-6">
+              {error && (
+                <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm text-center">
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="relative">
+                  <FiUser
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    size={20}
+                  />
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Username"
+                    required
+                    className="w-full pl-11 pr-4 py-3 bg-[#2A3942] text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#25D366] placeholder-gray-400"
+                  />
+                </div>
+
+                <div className="relative">
+                  <FiMail
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    size={20}
+                  />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Email address"
+                    required
+                    className="w-full pl-11 pr-4 py-3 bg-[#2A3942] text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#25D366] placeholder-gray-400"
+                  />
+                </div>
+
+                <div className="relative">
+                  <FiLock
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    size={20}
+                  />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Password"
+                    required
+                    className="w-full pl-11 pr-11 py-3 bg-[#2A3942] text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#25D366] placeholder-gray-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                  >
+                    {showPassword ? (
+                      <FiEyeOff size={20} />
+                    ) : (
+                      <FiEye size={20} />
+                    )}
+                  </button>
+                </div>
+
+                <div className="relative">
+                  <FiLock
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    size={20}
+                  />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm password"
+                    required
+                    className="w-full pl-11 pr-4 py-3 bg-[#2A3942] text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#25D366] placeholder-gray-400"
+                  />
+                  {confirmPassword && password === confirmPassword && (
+                    <FiCheck
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#25D366]"
+                      size={20}
+                    />
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 bg-[#25D366] hover:bg-[#128C7E] text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          fill="none"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
+                      </svg>
+                      Creating account...
+                    </span>
+                  ) : (
+                    "CREATE ACCOUNT"
+                  )}
+                </button>
+              </form>
+
+              <div className="mt-6 text-center">
+                <p className="text-gray-400">
+                  Already have an account?{" "}
+                  <button
+                    onClick={() => router.push("/login")}
+                    className="text-[#25D366] hover:underline font-medium"
+                  >
+                    Sign in
+                  </button>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Terms */}
+          <p className="text-center text-gray-500 text-xs mt-6 px-8">
+            By signing up, you agree to our Terms of Service and Privacy Policy
           </p>
         </div>
-
-        <form
-          className="mt-8 space-y-6 bg-dark-card p-8 rounded-lg shadow-xl"
-          onSubmit={handleSubmit}
-        >
-          {error && (
-            <div className="bg-red-500 bg-opacity-20 border border-red-500 text-red-500 px-4 py-3 rounded">
-              {error}
-            </div>
-          )}
-
-          <div className="space-y-4">
-            <div>
-              <label
-                htmlFor="username"
-                className="block text-sm font-medium text-primary-silver mb-2"
-              >
-                Username
-              </label>
-              <input
-                id="username"
-                name="username"
-                type="text"
-                required
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="appearance-none relative block w-full px-3 py-3 border border-gray-600 bg-dark-hover placeholder-gray-400 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-purple focus:border-transparent"
-                placeholder="Choose a username"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-primary-silver mb-2"
-              >
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none relative block w-full px-3 py-3 border border-gray-600 bg-dark-hover placeholder-gray-400 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-purple focus:border-transparent"
-                placeholder="Enter your email"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-primary-silver mb-2"
-              >
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none relative block w-full px-3 py-3 border border-gray-600 bg-dark-hover placeholder-gray-400 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-purple focus:border-transparent"
-                placeholder="Create a password"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="confirmPassword"
-                className="block text-sm font-medium text-primary-silver mb-2"
-              >
-                Confirm Password
-              </label>
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="appearance-none relative block w-full px-3 py-3 border border-gray-600 bg-dark-hover placeholder-gray-400 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-purple focus:border-transparent"
-                placeholder="Confirm your password"
-              />
-            </div>
-          </div>
-
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-primary-purple to-primary-blue hover:from-primary-blue hover:to-primary-purple focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-purple transition-all duration-300 disabled:opacity-50"
-            >
-              {loading ? "Creating account..." : "Sign up"}
-            </button>
-          </div>
-
-          <div className="text-center">
-            <p className="text-sm text-primary-silver">
-              Already have an account?{" "}
-              <button
-                type="button"
-                onClick={() => router.push("/login")}
-                className="font-medium text-primary-purple hover:text-primary-blue transition-colors"
-              >
-                Sign in
-              </button>
-            </p>
-          </div>
-        </form>
       </div>
     </div>
   );

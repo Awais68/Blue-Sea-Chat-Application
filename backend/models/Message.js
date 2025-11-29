@@ -22,6 +22,37 @@ const messageSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  messageType: {
+    type: String,
+    enum: ["text", "image", "file", "forwarded"],
+    default: "text",
+  },
+  forwardedFrom: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Message",
+  },
+  isDeleted: {
+    type: Boolean,
+    default: false,
+  },
+  deletedFor: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+  ],
+  readBy: [
+    {
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+      readAt: {
+        type: Date,
+        default: Date.now,
+      },
+    },
+  ],
   timestamp: {
     type: Date,
     default: Date.now,
