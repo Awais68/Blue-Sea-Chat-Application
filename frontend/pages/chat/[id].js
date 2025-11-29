@@ -23,7 +23,6 @@ import {
   FiPhoneOff,
   FiArrowLeft,
   FiMoreVertical,
-  FiSearch,
   FiPaperclip,
   FiSmile,
   FiCheck,
@@ -34,6 +33,11 @@ import {
   FiClock,
 } from "react-icons/fi";
 import { format, isToday, isYesterday } from "date-fns";
+
+// Theme color
+const THEME_COLOR = "#00b3fd";
+const THEME_DARK = "#0090cc";
+const THEME_LIGHT = "#e6f7ff";
 
 export default function ChatRoom() {
   const router = useRouter();
@@ -63,6 +67,8 @@ export default function ChatRoom() {
 
   const messagesEndRef = useRef(null);
   const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+  const remoteAudioRef = useRef(null);
   const remoteVideosRef = useRef(new Map());
   const webrtcManagerRef = useRef(null);
   const callTimerRef = useRef(null);
@@ -167,6 +173,19 @@ export default function ChatRoom() {
     scrollToBottom();
   }, [messages]);
 
+  // Play remote audio when stream changes
+  useEffect(() => {
+    if (remoteStreams.size > 0 && remoteAudioRef.current) {
+      const [firstStream] = Array.from(remoteStreams.values());
+      if (firstStream) {
+        remoteAudioRef.current.srcObject = firstStream;
+        remoteAudioRef.current
+          .play()
+          .catch((e) => console.log("Audio play error:", e));
+      }
+    }
+  }, [remoteStreams]);
+
   const fetchMessages = async () => {
     try {
       const response = await roomsAPI.getMessages(roomId);
@@ -216,17 +235,31 @@ export default function ChatRoom() {
     setInputMessage("");
   };
 
-  const handleRemoteStream = (stream, userId) => {
+  const handleRemoteStream = (stream, odlocalVideoRefuserId) => {
+    console.log(
+      "📹 Remote stream received:",
+      stream.getTracks().map((t) => t.kind)
+    );
+
     setRemoteStreams((prev) => {
       const newMap = new Map(prev);
-      newMap.set(userId, stream);
+      newMap.set(odlocalVideoRefuserId, stream);
       return newMap;
     });
 
+    // Play audio immediately
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.srcObject = stream;
+      remoteAudioRef.current
+        .play()
+        .catch((e) => console.log("Audio autoplay blocked:", e));
+    }
+
     setTimeout(() => {
-      const videoElement = remoteVideosRef.current.get(userId);
+      const videoElement = remoteVideosRef.current.get(odlocalVideoRefuserId);
       if (videoElement) {
         videoElement.srcObject = stream;
+        videoElement.play().catch((e) => console.log("Video play error:", e));
       }
     }, 100);
   };
@@ -369,7 +402,6 @@ export default function ChatRoom() {
       socket.emit("end-call", { roomId });
     }
 
-    // Save call log
     try {
       await roomsAPI.createCallLog(roomId, {
         callType: callType,
@@ -394,6 +426,10 @@ export default function ChatRoom() {
 
     if (localVideoRef.current) {
       localVideoRef.current.srcObject = null;
+    }
+
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.srcObject = null;
     }
 
     remoteVideosRef.current.forEach((videoEl) => {
@@ -520,21 +556,32 @@ export default function ChatRoom() {
 
   return (
     <div className="h-screen flex flex-col">
+      {/* Hidden audio element for remote audio - IMPORTANT FOR AUDIO CALLS */}
+      <audio
+        ref={remoteAudioRef}
+        autoPlay
+        playsInline
+        style={{ display: "none" }}
+      />
+
       {/* Main Chat Container with Background */}
       <div
         className="flex-1 flex flex-col relative"
         style={{
-          backgroundImage: "url('/images/a.jpg')",
+          backgroundImage: "url('/images/paper.jpeg')",
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
         }}
       >
         {/* Dark overlay for better text readability */}
-        <div className="absolute inset-0 bg-black/30" />
+        <div className="absolute inset-0 bg-black/20" />
 
-        {/* WhatsApp Style Header */}
-        <div className="relative z-10 bg-[#075E54] px-4 py-2 flex items-center justify-between shadow-md">
+        {/* Header with theme color */}
+        <div
+          className="relative z-10 px-4 py-2 flex items-center justify-between shadow-md"
+          style={{ backgroundColor: THEME_COLOR }}
+        >
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.push("/rooms")}
@@ -544,7 +591,10 @@ export default function ChatRoom() {
             </button>
 
             {/* Profile Avatar */}
-            <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-[#075E54] font-bold text-lg">
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg"
+              style={{ backgroundColor: THEME_DARK }}
+            >
               {roomInfo?.name?.charAt(0).toUpperCase() || "R"}
             </div>
 
@@ -552,7 +602,7 @@ export default function ChatRoom() {
               <h2 className="text-white font-semibold text-base">
                 {roomInfo?.name || "Chat Room"}
               </h2>
-              <p className="text-green-100 text-xs">
+              <p className="text-blue-100 text-xs">
                 {onlineUsers.length > 0
                   ? `${onlineUsers.length} participant${
                       onlineUsers.length > 1 ? "s" : ""
@@ -620,7 +670,10 @@ export default function ChatRoom() {
 
         {/* Selection Mode Actions Bar */}
         {isSelectionMode && selectedMessages.length > 0 && (
-          <div className="relative z-10 bg-[#075E54] px-4 py-2 flex items-center justify-between">
+          <div
+            className="relative z-10 px-4 py-2 flex items-center justify-between"
+            style={{ backgroundColor: THEME_COLOR }}
+          >
             <div className="flex items-center gap-3">
               <button
                 onClick={() => {
@@ -660,7 +713,10 @@ export default function ChatRoom() {
 
         {/* Call Duration Bar */}
         {inCall && (
-          <div className="relative z-10 bg-[#128C7E] px-4 py-2 flex items-center justify-center">
+          <div
+            className="relative z-10 px-4 py-2 flex items-center justify-center"
+            style={{ backgroundColor: THEME_DARK }}
+          >
             <span className="text-white text-sm">
               {callType === "video" ? "📹" : "📞"}{" "}
               {formatDuration(callDuration)}
@@ -670,7 +726,7 @@ export default function ChatRoom() {
 
         {/* Video Call Section */}
         {inCall && (
-          <div className="relative z-10 flex-1 bg-black flex flex-col">
+          <div className="relative z-10 flex-1 bg-gray-900 flex flex-col">
             <div className="flex-1 relative">
               {/* Remote Videos */}
               <div
@@ -707,27 +763,13 @@ export default function ChatRoom() {
                         {callType === "video" ? "📹" : "📞"}
                       </div>
                       <p className="text-lg">Connecting...</p>
+                      <p className="text-sm text-gray-400 mt-2">
+                        Waiting for other participant...
+                      </p>
                     </div>
                   </div>
                 )}
               </div>
-
-              {/* Hidden audio for audio calls */}
-              {callType === "audio" &&
-                Array.from(remoteStreams.entries()).map(
-                  ([odlocalVideoRefuserId, stream]) => (
-                    <audio
-                      key={`audio-${odlocalVideoRefuserId}`}
-                      ref={(el) => {
-                        if (el && stream) {
-                          el.srcObject = stream;
-                          el.play().catch(console.log);
-                        }
-                      }}
-                      autoPlay
-                    />
-                  )
-                )}
 
               {/* Local Video PiP */}
               {callType === "video" && (
@@ -797,7 +839,10 @@ export default function ChatRoom() {
               <div key={date}>
                 {/* Date Separator */}
                 <div className="flex justify-center my-3">
-                  <span className="bg-[#DCF8C6]/80 text-gray-600 px-3 py-1 rounded-lg text-xs shadow-sm">
+                  <span
+                    className="px-3 py-1 rounded-lg text-xs shadow-sm text-white"
+                    style={{ backgroundColor: THEME_COLOR }}
+                  >
                     {date}
                   </span>
                 </div>
@@ -821,20 +866,31 @@ export default function ChatRoom() {
                     >
                       <div
                         className={`relative max-w-[75%] px-3 py-2 rounded-lg shadow-sm ${
-                          isSelected ? "ring-2 ring-[#25D366]" : ""
-                        } ${
-                          isSender
-                            ? "bg-[#DCF8C6] rounded-tr-none"
-                            : "bg-white rounded-tl-none"
+                          isSelected ? "ring-2" : ""
                         }`}
+                        style={{
+                          backgroundColor: isSender ? THEME_LIGHT : "white",
+                          borderTopRightRadius: isSender ? 0 : undefined,
+                          borderTopLeftRadius: !isSender ? 0 : undefined,
+                          ...(isSelected && { ringColor: THEME_COLOR }),
+                        }}
                       >
                         {/* Message tail */}
                         <div
-                          className={`absolute top-0 w-0 h-0 ${
+                          className="absolute top-0 w-0 h-0"
+                          style={
                             isSender
-                              ? "right-[-8px] border-l-[8px] border-l-[#DCF8C6] border-t-[8px] border-t-transparent"
-                              : "left-[-8px] border-r-[8px] border-r-white border-t-[8px] border-t-transparent"
-                          }`}
+                              ? {
+                                  right: -8,
+                                  borderLeft: `8px solid ${THEME_LIGHT}`,
+                                  borderTop: "8px solid transparent",
+                                }
+                              : {
+                                  left: -8,
+                                  borderRight: "8px solid white",
+                                  borderTop: "8px solid transparent",
+                                }
+                          }
                         />
 
                         {/* Forwarded label */}
@@ -847,7 +903,10 @@ export default function ChatRoom() {
 
                         {/* Sender name for received messages */}
                         {!isSender && (
-                          <p className="text-xs font-semibold text-[#075E54] mb-1">
+                          <p
+                            className="text-xs font-semibold mb-1"
+                            style={{ color: THEME_COLOR }}
+                          >
                             {msg.senderName || msg.sender?.username}
                           </p>
                         )}
@@ -869,7 +928,7 @@ export default function ChatRoom() {
                             {format(new Date(msg.timestamp), "HH:mm")}
                           </span>
                           {isSender && !msg.isDeleted && (
-                            <span className="text-[#34B7F1]">
+                            <span style={{ color: THEME_COLOR }}>
                               <FiCheck size={12} />
                             </span>
                           )}
@@ -878,11 +937,13 @@ export default function ChatRoom() {
                         {/* Selection checkbox */}
                         {isSelectionMode && (
                           <div
-                            className={`absolute -left-6 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                              isSelected
-                                ? "bg-[#25D366] border-[#25D366]"
-                                : "border-gray-400 bg-white"
-                            }`}
+                            className="absolute -left-6 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full border-2 flex items-center justify-center"
+                            style={{
+                              backgroundColor: isSelected
+                                ? THEME_COLOR
+                                : "white",
+                              borderColor: isSelected ? THEME_COLOR : "#9ca3af",
+                            }}
                           >
                             {isSelected && (
                               <FiCheck size={12} className="text-white" />
@@ -899,7 +960,7 @@ export default function ChatRoom() {
           </div>
         )}
 
-        {/* Message Input - WhatsApp Style */}
+        {/* Message Input */}
         {!inCall && (
           <div className="relative z-10 bg-[#F0F0F0] px-2 py-2">
             <form
@@ -920,6 +981,9 @@ export default function ChatRoom() {
                   onChange={(e) => setInputMessage(e.target.value)}
                   placeholder="Type a message"
                   className="w-full px-4 py-2.5 bg-white text-gray-800 rounded-full focus:outline-none shadow-sm"
+                  style={{
+                    focusRing: THEME_COLOR,
+                  }}
                 />
               </div>
 
@@ -932,7 +996,8 @@ export default function ChatRoom() {
 
               <button
                 type="submit"
-                className="w-11 h-11 bg-[#25D366] hover:bg-[#128C7E] text-white rounded-full flex items-center justify-center transition-colors shadow-md"
+                className="w-11 h-11 text-white rounded-full flex items-center justify-center transition-colors shadow-md"
+                style={{ backgroundColor: THEME_COLOR }}
               >
                 <FiSend size={20} />
               </button>
@@ -1006,7 +1071,10 @@ export default function ChatRoom() {
       {showForwardModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl w-80 max-h-[70vh] overflow-hidden shadow-2xl">
-            <div className="bg-[#075E54] px-4 py-3 flex items-center justify-between">
+            <div
+              className="px-4 py-3 flex items-center justify-between"
+              style={{ backgroundColor: THEME_COLOR }}
+            >
               <h3 className="text-white font-semibold">Forward to...</h3>
               <button
                 onClick={() => setShowForwardModal(false)}
@@ -1022,7 +1090,10 @@ export default function ChatRoom() {
                   onClick={() => handleForwardMessages(room._id)}
                   className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-100 border-b"
                 >
-                  <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-[#075E54] font-bold">
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
+                    style={{ backgroundColor: THEME_COLOR }}
+                  >
                     {room.name.charAt(0).toUpperCase()}
                   </div>
                   <span className="text-gray-800">{room.name}</span>
@@ -1042,7 +1113,10 @@ export default function ChatRoom() {
       {showCallLogs && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl w-96 max-h-[80vh] overflow-hidden shadow-2xl">
-            <div className="bg-[#075E54] px-4 py-3 flex items-center justify-between">
+            <div
+              className="px-4 py-3 flex items-center justify-between"
+              style={{ backgroundColor: THEME_COLOR }}
+            >
               <h3 className="text-white font-semibold">Call History</h3>
               <button
                 onClick={() => setShowCallLogs(false)}
@@ -1101,7 +1175,8 @@ export default function ChatRoom() {
                       setShowCallLogs(false);
                       startCall(call.callType);
                     }}
-                    className="p-2 text-[#075E54] hover:bg-gray-100 rounded-full"
+                    className="p-2 rounded-full hover:bg-gray-100"
+                    style={{ color: THEME_COLOR }}
                   >
                     {call.callType === "video" ? (
                       <FiVideo size={20} />
@@ -1121,17 +1196,20 @@ export default function ChatRoom() {
         </div>
       )}
 
-      {/* Incoming Call Modal - WhatsApp Style */}
+      {/* Incoming Call Modal */}
       {incomingCall && (
-        <div className="fixed inset-0 bg-[#075E54] flex flex-col items-center justify-center z-50">
+        <div
+          className="fixed inset-0 flex flex-col items-center justify-center z-50"
+          style={{ backgroundColor: THEME_COLOR }}
+        >
           <div className="text-center mb-8">
-            <div className="w-28 h-28 rounded-full bg-gray-300 mx-auto mb-4 flex items-center justify-center text-[#075E54] text-4xl font-bold animate-pulse">
+            <div className="w-28 h-28 rounded-full bg-white/20 mx-auto mb-4 flex items-center justify-center text-white text-4xl font-bold animate-pulse">
               {incomingCall.username.charAt(0).toUpperCase()}
             </div>
             <h3 className="text-2xl font-semibold text-white mb-2">
               {incomingCall.username}
             </h3>
-            <p className="text-green-100">
+            <p className="text-blue-100">
               {incomingCall.callType === "video"
                 ? "Incoming video call..."
                 : "Incoming voice call..."}

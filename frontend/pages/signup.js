@@ -2,17 +2,24 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "../contexts/AuthContext";
 import {
-  FiUser,
-  FiMail,
+  FiMessageCircle,
   FiLock,
+  FiMail,
   FiEye,
   FiEyeOff,
-  FiMessageCircle,
-  FiCheck,
+  FiUser,
+  FiPhone,
+  FiArrowLeft,
 } from "react-icons/fi";
 
+// Theme colors
+const THEME_COLOR = "#00b3fd";
+const THEME_DARK = "#0090cc";
+const BG_DARK = "#0a1929";
+const BG_CARD = "#0d2137";
+
 export default function Signup() {
-  const [username, setUsername] = useState("");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -45,7 +52,7 @@ export default function Signup() {
 
     setLoading(true);
 
-    const result = await signup(username, email, password);
+    const result = await signup(name, email, password);
 
     if (result.success) {
       router.push("/rooms");
@@ -56,22 +63,41 @@ export default function Signup() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#111B21]">
-      {/* WhatsApp Header Bar */}
-      <div className="bg-[#075E54] h-40 flex items-center justify-center">
+    <div
+      className="min-h-screen flex flex-col"
+      style={{ backgroundColor: BG_DARK }}
+    >
+      {/* Header Bar */}
+      <div
+        className="h-44 flex items-center justify-center relative"
+        style={{ backgroundColor: THEME_COLOR }}
+      >
+        <button
+          onClick={() => router.push("/login")}
+          className="absolute left-4 top-4 text-white p-2 hover:bg-white/10 rounded-full"
+        >
+          <FiArrowLeft size={24} />
+        </button>
         <div className="text-center">
           <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
-            <FiMessageCircle size={32} className="text-white" />
+            <FiUser size={32} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-white">Create Account</h1>
         </div>
       </div>
 
       {/* Signup Form */}
-      <div className="flex-1 flex items-start justify-center -mt-8 px-4 pb-8">
+      <div className="flex-1 flex items-start justify-center -mt-10 px-4 pb-8">
         <div className="w-full max-w-md">
-          <div className="bg-[#202C33] rounded-xl shadow-2xl overflow-hidden">
+          <div
+            className="rounded-xl shadow-2xl overflow-hidden"
+            style={{ backgroundColor: BG_CARD }}
+          >
             <div className="p-6">
+              <h2 className="text-lg font-semibold text-white text-center mb-5">
+                Fill in your details
+              </h2>
+
               {error && (
                 <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm text-center">
                   {error}
@@ -81,23 +107,26 @@ export default function Signup() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="relative">
                   <FiUser
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    className="absolute left-3 top-1/2 -translate-y-1/2"
                     size={20}
+                    style={{ color: THEME_COLOR }}
                   />
                   <input
                     type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Username"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Full Name"
                     required
-                    className="w-full pl-11 pr-4 py-3 bg-[#2A3942] text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#25D366] placeholder-gray-400"
+                    className="w-full pl-11 pr-4 py-3 text-white rounded-lg focus:outline-none focus:ring-2 placeholder-gray-400"
+                    style={{ backgroundColor: BG_DARK }}
                   />
                 </div>
 
                 <div className="relative">
                   <FiMail
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    className="absolute left-3 top-1/2 -translate-y-1/2"
                     size={20}
+                    style={{ color: THEME_COLOR }}
                   />
                   <input
                     type="email"
@@ -105,14 +134,16 @@ export default function Signup() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Email address"
                     required
-                    className="w-full pl-11 pr-4 py-3 bg-[#2A3942] text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#25D366] placeholder-gray-400"
+                    className="w-full pl-11 pr-4 py-3 text-white rounded-lg focus:outline-none focus:ring-2 placeholder-gray-400"
+                    style={{ backgroundColor: BG_DARK }}
                   />
                 </div>
 
                 <div className="relative">
                   <FiLock
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    className="absolute left-3 top-1/2 -translate-y-1/2"
                     size={20}
+                    style={{ color: THEME_COLOR }}
                   />
                   <input
                     type={showPassword ? "text" : "password"}
@@ -120,7 +151,8 @@ export default function Signup() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Password"
                     required
-                    className="w-full pl-11 pr-11 py-3 bg-[#2A3942] text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#25D366] placeholder-gray-400"
+                    className="w-full pl-11 pr-11 py-3 text-white rounded-lg focus:outline-none focus:ring-2 placeholder-gray-400"
+                    style={{ backgroundColor: BG_DARK }}
                   />
                   <button
                     type="button"
@@ -137,29 +169,26 @@ export default function Signup() {
 
                 <div className="relative">
                   <FiLock
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    className="absolute left-3 top-1/2 -translate-y-1/2"
                     size={20}
+                    style={{ color: THEME_COLOR }}
                   />
                   <input
                     type={showPassword ? "text" : "password"}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Confirm password"
+                    placeholder="Confirm Password"
                     required
-                    className="w-full pl-11 pr-4 py-3 bg-[#2A3942] text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#25D366] placeholder-gray-400"
+                    className="w-full pl-11 pr-4 py-3 text-white rounded-lg focus:outline-none focus:ring-2 placeholder-gray-400"
+                    style={{ backgroundColor: BG_DARK }}
                   />
-                  {confirmPassword && password === confirmPassword && (
-                    <FiCheck
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#25D366]"
-                      size={20}
-                    />
-                  )}
                 </div>
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-[#25D366] hover:bg-[#128C7E] text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-3 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: THEME_COLOR }}
                 >
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
@@ -182,7 +211,7 @@ export default function Signup() {
                       Creating account...
                     </span>
                   ) : (
-                    "CREATE ACCOUNT"
+                    "SIGN UP"
                   )}
                 </button>
               </form>
@@ -192,7 +221,8 @@ export default function Signup() {
                   Already have an account?{" "}
                   <button
                     onClick={() => router.push("/login")}
-                    className="text-[#25D366] hover:underline font-medium"
+                    className="font-medium hover:underline"
+                    style={{ color: THEME_COLOR }}
                   >
                     Sign in
                   </button>
@@ -201,10 +231,20 @@ export default function Signup() {
             </div>
           </div>
 
-          {/* Terms */}
-          <p className="text-center text-gray-500 text-xs mt-6 px-8">
-            By signing up, you agree to our Terms of Service and Privacy Policy
-          </p>
+          {/* Features */}
+          <div className="mt-6 text-center">
+            <p className="text-gray-500 text-sm mb-4">What you'll get</p>
+            <div className="flex justify-center gap-6">
+              <div className="flex items-center gap-2 text-gray-400 text-sm">
+                <FiMessageCircle style={{ color: THEME_COLOR }} />
+                <span>Free Messaging</span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-400 text-sm">
+                <FiPhone style={{ color: THEME_COLOR }} />
+                <span>HD Calls</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

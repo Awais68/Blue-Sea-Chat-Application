@@ -17,6 +17,12 @@ import {
 } from "react-icons/fi";
 import { format, isToday, isYesterday } from "date-fns";
 
+// Theme colors
+const THEME_COLOR = "#00b3fd";
+const THEME_DARK = "#0090cc";
+const BG_DARK = "#0a1929";
+const BG_CARD = "#0d2137";
+
 export default function Rooms() {
   const [rooms, setRooms] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -84,9 +90,15 @@ export default function Rooms() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#111B21]">
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: BG_DARK }}
+      >
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-[#25D366] mx-auto"></div>
+          <div
+            className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 mx-auto"
+            style={{ borderColor: THEME_COLOR }}
+          ></div>
           <p className="mt-4 text-gray-400">Loading chats...</p>
         </div>
       </div>
@@ -94,11 +106,14 @@ export default function Rooms() {
   }
 
   return (
-    <div className="min-h-screen bg-[#111B21] flex flex-col">
-      {/* WhatsApp Style Header */}
-      <div className="bg-[#202C33] px-4 py-3">
+    <div
+      className="min-h-screen flex flex-col"
+      style={{ backgroundColor: BG_DARK }}
+    >
+      {/* Header */}
+      <div className="px-4 py-3" style={{ backgroundColor: BG_CARD }}>
         <div className="flex justify-between items-center">
-          <h1 className="text-xl font-bold text-white">WhatsApp</h1>
+          <h1 className="text-xl font-bold text-white">Blue Sea Chat</h1>
           <div className="flex items-center gap-4">
             <button className="text-gray-400 hover:text-white transition-colors">
               <FiCamera size={20} />
@@ -110,17 +125,20 @@ export default function Rooms() {
               <button className="text-gray-400 hover:text-white transition-colors">
                 <FiMoreVertical size={20} />
               </button>
-              <div className="absolute right-0 top-full mt-2 bg-[#233138] rounded-lg shadow-xl py-2 w-48 hidden group-hover:block z-50">
+              <div
+                className="absolute right-0 top-full mt-2 rounded-lg shadow-xl py-2 w-48 hidden group-hover:block z-50"
+                style={{ backgroundColor: BG_CARD }}
+              >
                 <button
                   onClick={() => setShowCreateModal(true)}
-                  className="w-full px-4 py-2 text-left text-gray-200 hover:bg-[#182229] flex items-center gap-3"
+                  className="w-full px-4 py-2 text-left text-gray-200 hover:bg-white/10 flex items-center gap-3"
                 >
                   <FiPlus size={16} />
                   New group
                 </button>
                 <button
                   onClick={handleLogout}
-                  className="w-full px-4 py-2 text-left text-gray-200 hover:bg-[#182229] flex items-center gap-3"
+                  className="w-full px-4 py-2 text-left text-gray-200 hover:bg-white/10 flex items-center gap-3"
                 >
                   <FiLogOut size={16} />
                   Log out
@@ -132,7 +150,7 @@ export default function Rooms() {
       </div>
 
       {/* Search Bar */}
-      <div className="bg-[#111B21] px-3 py-2">
+      <div className="px-3 py-2" style={{ backgroundColor: BG_DARK }}>
         <div className="relative">
           <FiSearch
             className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
@@ -143,20 +161,24 @@ export default function Rooms() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search or start new chat"
-            className="w-full pl-10 pr-4 py-2 bg-[#202C33] text-gray-200 rounded-lg focus:outline-none placeholder-gray-500"
+            className="w-full pl-10 pr-4 py-2 text-gray-200 rounded-lg focus:outline-none placeholder-gray-500"
+            style={{ backgroundColor: BG_CARD }}
           />
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-[#202C33]">
+      <div className="flex border-b" style={{ borderColor: BG_CARD }}>
         <button
           onClick={() => setActiveTab("chats")}
           className={`flex-1 py-3 text-center font-medium transition-colors ${
-            activeTab === "chats"
-              ? "text-[#25D366] border-b-2 border-[#25D366]"
-              : "text-gray-400"
+            activeTab === "chats" ? "border-b-2" : "text-gray-400"
           }`}
+          style={
+            activeTab === "chats"
+              ? { color: THEME_COLOR, borderColor: THEME_COLOR }
+              : {}
+          }
         >
           <FiMessageCircle className="inline mr-2" />
           Chats
@@ -164,10 +186,13 @@ export default function Rooms() {
         <button
           onClick={() => setActiveTab("calls")}
           className={`flex-1 py-3 text-center font-medium transition-colors ${
-            activeTab === "calls"
-              ? "text-[#25D366] border-b-2 border-[#25D366]"
-              : "text-gray-400"
+            activeTab === "calls" ? "border-b-2" : "text-gray-400"
           }`}
+          style={
+            activeTab === "calls"
+              ? { color: THEME_COLOR, borderColor: THEME_COLOR }
+              : {}
+          }
         >
           <FiPhone className="inline mr-2" />
           Calls
@@ -180,10 +205,14 @@ export default function Rooms() {
           <div
             key={room._id}
             onClick={() => router.push(`/chat/${room._id}`)}
-            className="flex items-center gap-3 px-4 py-3 hover:bg-[#202C33] cursor-pointer transition-colors border-b border-[#202C33]/50"
+            className="flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors border-b hover:bg-white/5"
+            style={{ borderColor: BG_CARD }}
           >
             {/* Avatar */}
-            <div className="w-12 h-12 rounded-full bg-[#6B7C85] flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
+              style={{ backgroundColor: THEME_COLOR }}
+            >
               {room.name.charAt(0).toUpperCase()}
             </div>
 
@@ -207,7 +236,10 @@ export default function Rooms() {
 
         {filteredRooms.length === 0 && (
           <div className="text-center py-12">
-            <div className="w-20 h-20 rounded-full bg-[#202C33] mx-auto mb-4 flex items-center justify-center">
+            <div
+              className="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center"
+              style={{ backgroundColor: BG_CARD }}
+            >
               <FiMessageCircle className="text-4xl text-gray-500" />
             </div>
             <p className="text-gray-400">
@@ -223,17 +255,24 @@ export default function Rooms() {
       {/* Floating Action Button */}
       <button
         onClick={() => setShowCreateModal(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-[#25D366] hover:bg-[#128C7E] rounded-full flex items-center justify-center shadow-lg transition-colors"
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-colors"
+        style={{ backgroundColor: THEME_COLOR }}
       >
         <FiMessageCircle size={24} className="text-white" />
       </button>
 
-      {/* Create Room Modal - WhatsApp Style */}
+      {/* Create Room Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
-          <div className="bg-[#202C33] rounded-xl max-w-md w-full overflow-hidden">
+          <div
+            className="rounded-xl max-w-md w-full overflow-hidden"
+            style={{ backgroundColor: BG_CARD }}
+          >
             {/* Modal Header */}
-            <div className="bg-[#075E54] px-4 py-4 flex items-center gap-4">
+            <div
+              className="px-4 py-4 flex items-center gap-4"
+              style={{ backgroundColor: THEME_COLOR }}
+            >
               <button
                 onClick={() => setShowCreateModal(false)}
                 className="text-white hover:bg-white/10 p-1 rounded-full"
@@ -253,7 +292,10 @@ export default function Rooms() {
 
               {/* Group Icon */}
               <div className="flex justify-center mb-6">
-                <div className="w-24 h-24 rounded-full bg-[#6B7C85] flex items-center justify-center">
+                <div
+                  className="w-24 h-24 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: THEME_DARK }}
+                >
                   <FiCamera size={32} className="text-white" />
                 </div>
               </div>
@@ -265,7 +307,8 @@ export default function Rooms() {
                     value={roomName}
                     onChange={(e) => setRoomName(e.target.value)}
                     placeholder="Group name"
-                    className="w-full px-0 py-3 bg-transparent text-white border-b-2 border-[#25D366] focus:outline-none placeholder-gray-400"
+                    className="w-full px-0 py-3 bg-transparent text-white border-b-2 focus:outline-none placeholder-gray-400"
+                    style={{ borderColor: THEME_COLOR }}
                     required
                   />
                 </div>
@@ -275,14 +318,16 @@ export default function Rooms() {
                     value={roomDescription}
                     onChange={(e) => setRoomDescription(e.target.value)}
                     placeholder="Group description (optional)"
-                    className="w-full px-0 py-3 bg-transparent text-white border-b border-gray-600 focus:border-[#25D366] focus:outline-none placeholder-gray-400"
+                    className="w-full px-0 py-3 bg-transparent text-white border-b border-gray-600 focus:border-b-2 focus:outline-none placeholder-gray-400"
+                    style={{ focusBorderColor: THEME_COLOR }}
                   />
                 </div>
               </div>
 
               <button
                 type="submit"
-                className="w-full mt-6 py-3 bg-[#25D366] hover:bg-[#128C7E] text-white font-semibold rounded-lg transition-colors"
+                className="w-full mt-6 py-3 text-white font-semibold rounded-lg transition-colors"
+                style={{ backgroundColor: THEME_COLOR }}
               >
                 Create Group
               </button>
@@ -292,9 +337,15 @@ export default function Rooms() {
       )}
 
       {/* Profile Bar */}
-      <div className="bg-[#202C33] px-4 py-3 flex items-center justify-between border-t border-[#2A3942]">
+      <div
+        className="px-4 py-3 flex items-center justify-between border-t"
+        style={{ backgroundColor: BG_CARD, borderColor: BG_DARK }}
+      >
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#6B7C85] flex items-center justify-center text-white font-bold">
+          <div
+            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
+            style={{ backgroundColor: THEME_COLOR }}
+          >
             {user?.username?.charAt(0).toUpperCase()}
           </div>
           <span className="text-white font-medium">{user?.username}</span>

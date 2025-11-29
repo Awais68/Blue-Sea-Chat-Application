@@ -7,98 +7,163 @@ import {
   FiVideo,
   FiShield,
   FiUsers,
+  FiArrowRight,
 } from "react-icons/fi";
 
+// Theme colors
+const THEME_COLOR = "#00b3fd";
+const THEME_DARK = "#0090cc";
+const BG_DARK = "#0a1929";
+
 export default function Home() {
-  const { isAuthenticated } = useAuth();
   const router = useRouter();
+  const { isAuthenticated, loading } = useAuth();
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (!loading && isAuthenticated) {
       router.push("/rooms");
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, loading, router]);
+
+  if (loading) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: BG_DARK }}
+      >
+        <div
+          className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2"
+          style={{ borderColor: THEME_COLOR }}
+        ></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-[#111B21] flex flex-col">
+    <div
+      className="min-h-screen flex flex-col"
+      style={{ backgroundColor: BG_DARK }}
+    >
       {/* Hero Section */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
+      <div
+        className="flex-1 flex flex-col items-center justify-center px-4 text-center"
+        style={{
+          background: `linear-gradient(180deg, ${THEME_COLOR}20 0%, transparent 100%)`,
+        }}
+      >
         {/* Logo */}
-        <div className="relative mb-8">
-          <div className="w-32 h-32 bg-[#25D366] rounded-full flex items-center justify-center shadow-2xl shadow-[#25D366]/30">
-            <FiMessageCircle size={64} className="text-white" />
-          </div>
-          <div className="absolute -top-2 -right-2 w-8 h-8 bg-[#075E54] rounded-full flex items-center justify-center">
-            <span className="text-white text-xs font-bold">+</span>
-          </div>
+        <div
+          className="w-28 h-28 rounded-full flex items-center justify-center mb-6 shadow-2xl"
+          style={{
+            backgroundColor: THEME_COLOR,
+            boxShadow: `0 0 60px ${THEME_COLOR}50`,
+          }}
+        >
+          <FiMessageCircle size={56} className="text-white" />
         </div>
 
         {/* Title */}
-        <h1 className="text-4xl md:text-5xl font-bold text-white text-center mb-4">
-          WhatsApp
-        </h1>
-        <p className="text-gray-400 text-center text-lg mb-8 max-w-md">
-          Simple, reliable, private messaging and calling for free*, available
-          all over the world.
+        <h1 className="text-4xl font-bold text-white mb-3">Blue Sea Chat</h1>
+        <p className="text-gray-400 text-lg max-w-md mb-8">
+          Connect with friends and family through instant messaging,
+          crystal-clear voice and video calls
         </p>
 
         {/* Features Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12 max-w-2xl">
-          <div className="text-center p-4">
-            <div className="w-14 h-14 bg-[#202C33] rounded-full flex items-center justify-center mx-auto mb-3">
-              <FiMessageCircle size={24} className="text-[#25D366]" />
-            </div>
-            <p className="text-gray-300 text-sm">Text Chat</p>
+        <div className="grid grid-cols-2 gap-4 max-w-sm w-full mb-10">
+          <div
+            className="p-4 rounded-xl"
+            style={{ backgroundColor: `${THEME_COLOR}15` }}
+          >
+            <FiMessageCircle
+              className="mx-auto mb-2"
+              size={28}
+              style={{ color: THEME_COLOR }}
+            />
+            <p className="text-white font-medium">Messages</p>
+            <p className="text-gray-500 text-xs mt-1">
+              Send & receive instantly
+            </p>
           </div>
-          <div className="text-center p-4">
-            <div className="w-14 h-14 bg-[#202C33] rounded-full flex items-center justify-center mx-auto mb-3">
-              <FiPhone size={24} className="text-[#25D366]" />
-            </div>
-            <p className="text-gray-300 text-sm">Voice Calls</p>
+          <div
+            className="p-4 rounded-xl"
+            style={{ backgroundColor: `${THEME_COLOR}15` }}
+          >
+            <FiPhone
+              className="mx-auto mb-2"
+              size={28}
+              style={{ color: THEME_COLOR }}
+            />
+            <p className="text-white font-medium">Voice Calls</p>
+            <p className="text-gray-500 text-xs mt-1">HD audio quality</p>
           </div>
-          <div className="text-center p-4">
-            <div className="w-14 h-14 bg-[#202C33] rounded-full flex items-center justify-center mx-auto mb-3">
-              <FiVideo size={24} className="text-[#25D366]" />
-            </div>
-            <p className="text-gray-300 text-sm">Video Calls</p>
+          <div
+            className="p-4 rounded-xl"
+            style={{ backgroundColor: `${THEME_COLOR}15` }}
+          >
+            <FiVideo
+              className="mx-auto mb-2"
+              size={28}
+              style={{ color: THEME_COLOR }}
+            />
+            <p className="text-white font-medium">Video Calls</p>
+            <p className="text-gray-500 text-xs mt-1">Face-to-face chat</p>
           </div>
-          <div className="text-center p-4">
-            <div className="w-14 h-14 bg-[#202C33] rounded-full flex items-center justify-center mx-auto mb-3">
-              <FiUsers size={24} className="text-[#25D366]" />
-            </div>
-            <p className="text-gray-300 text-sm">Group Chats</p>
+          <div
+            className="p-4 rounded-xl"
+            style={{ backgroundColor: `${THEME_COLOR}15` }}
+          >
+            <FiShield
+              className="mx-auto mb-2"
+              size={28}
+              style={{ color: THEME_COLOR }}
+            />
+            <p className="text-white font-medium">Secure</p>
+            <p className="text-gray-500 text-xs mt-1">End-to-end encryption</p>
           </div>
         </div>
 
         {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
+        <div className="w-full max-w-sm space-y-3">
           <button
             onClick={() => router.push("/login")}
-            className="flex-1 py-4 bg-[#25D366] hover:bg-[#128C7E] text-white font-semibold rounded-full transition-colors text-lg shadow-lg shadow-[#25D366]/30"
+            className="w-full py-3.5 text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-all hover:opacity-90"
+            style={{ backgroundColor: THEME_COLOR }}
           >
-            Sign In
+            Get Started
+            <FiArrowRight size={20} />
           </button>
+
           <button
             onClick={() => router.push("/signup")}
-            className="flex-1 py-4 bg-[#202C33] hover:bg-[#2A3942] text-white font-semibold rounded-full transition-colors text-lg border border-[#2A3942]"
+            className="w-full py-3.5 text-white font-semibold rounded-xl border-2 transition-all hover:bg-white/5"
+            style={{ borderColor: THEME_COLOR }}
           >
-            Create Account
+            Create New Account
           </button>
-        </div>
-
-        {/* Security Badge */}
-        <div className="flex items-center gap-2 mt-8 text-gray-500">
-          <FiShield size={16} />
-          <span className="text-sm">End-to-end encrypted</span>
         </div>
       </div>
 
       {/* Footer */}
-      <div className="py-6 text-center border-t border-[#202C33]">
-        <p className="text-gray-500 text-sm">
-          Built with WebRTC for real-time communication
+      <div className="py-6 text-center">
+        <div className="flex items-center justify-center gap-2 text-gray-500 text-sm mb-2">
+          <FiUsers size={16} />
+          <span>Join thousands of users worldwide</span>
+        </div>
+        <p className="text-gray-600 text-xs">
+          © 2024 Blue Sea Chat. All rights reserved.
         </p>
       </div>
+
+      {/* Decorative Elements */}
+      <div
+        className="fixed top-0 left-0 w-72 h-72 rounded-full blur-3xl opacity-20 pointer-events-none"
+        style={{ backgroundColor: THEME_COLOR }}
+      />
+      <div
+        className="fixed bottom-0 right-0 w-96 h-96 rounded-full blur-3xl opacity-10 pointer-events-none"
+        style={{ backgroundColor: THEME_COLOR }}
+      />
     </div>
   );
 }
