@@ -1,0 +1,26 @@
+{
+  "name": "webrtc-full-stack-app",
+  "version": "1.0.0",
+  "description": "Full-stack WebRTC chat application with Next.js and Node.js",
+  "scripts": {
+    "setup": "./setup.sh",
+    "install-all": "cd backend && npm install && cd ../frontend && npm install",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "start:backend": "cd backend && npm start",
+    "start:frontend": "cd frontend && npm start",
+    "build:frontend": "cd frontend && npm run build"
+  },
+  "keywords": [
+    "webrtc",
+    "socket.io",
+    "next.js",
+    "express",
+    "mongodb",
+    "real-time",
+    "video-chat",
+    "voice-chat"
+  ],
+  "author": "",
+  "license": "MIT"
+}
