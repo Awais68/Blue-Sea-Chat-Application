@@ -38,32 +38,12 @@ import { format, isToday, isYesterday } from "date-fns";
 const THEME_COLOR = "#00b3fd";
 const THEME_DARK = "#0090cc";
 
-// Different background images for different chats
-const BACKGROUND_IMAGES = [
-  "/images/a.jpg",
-  "/images/236.jpeg",
-  "/images/annie-spratt-zA7I5BtFbvw-unsplash.jpg",
-  "/images/marissa-rodriguez-2mKYEVGA4jE-unsplash.jpg",
-  "/images/math-U5mHl-uACe0-unsplash.jpg",
-  "/images/paper.jpeg",
-  "/images/r.jpeg",
-  "/images/whas.jpeg",
-];
+// Fixed background image - hi.jpg
+const BACKGROUND_IMAGE = "/images/hi.jpg";
 
-// Message colors - Sender green, Receiver white
-const SENDER_MSG_COLOR = "#DCF8C6";
-const RECEIVER_MSG_COLOR = "#FFFFFF";
-
-// Get background image based on room ID
-const getBackgroundImage = (roomId) => {
-  if (!roomId) return BACKGROUND_IMAGES[0];
-  let hash = 0;
-  for (let i = 0; i < roomId.length; i++) {
-    hash = roomId.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const index = Math.abs(hash) % BACKGROUND_IMAGES.length;
-  return BACKGROUND_IMAGES[index];
-};
+// Message colors - Sender (right side) light green, Receiver (left side) white
+const SENDER_MSG_COLOR = "#DCF8C6"; // Light green - YOUR messages (right side)
+const RECEIVER_MSG_COLOR = "#FFFFFF"; // White - OTHER person's messages (left side)
 
 export default function ChatRoom() {
   const router = useRouter();
@@ -100,9 +80,6 @@ export default function ChatRoom() {
   const webrtcManagerRef = useRef(null);
   const callTimerRef = useRef(null);
   const inCallRef = useRef(false);
-
-  // Get background image for this chat
-  const backgroundImage = getBackgroundImage(roomId);
 
   useEffect(() => {
     if (!isAuthenticated || !user) {
@@ -634,11 +611,11 @@ export default function ChatRoom() {
         style={{ position: "absolute", opacity: 0, pointerEvents: "none" }}
       />
 
-      {/* Main Chat Container with Dynamic Background */}
+      {/* Main Chat Container with hi.jpg Background */}
       <div
         className="flex-1 flex flex-col relative"
         style={{
-          backgroundImage: `url('${backgroundImage}')`,
+          backgroundImage: `url('${BACKGROUND_IMAGE}')`,
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
