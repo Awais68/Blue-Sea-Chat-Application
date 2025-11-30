@@ -90,7 +90,10 @@ export default function Rooms() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: BG_DARK }}>
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: BG_DARK }}
+      >
         <div className="text-center">
           <div
             className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 mx-auto"
@@ -103,7 +106,10 @@ export default function Rooms() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: BG_DARK }}>
+    <div
+      className="min-h-screen flex flex-col"
+      style={{ backgroundColor: BG_DARK }}
+    >
       {/* Header */}
       <div className="px-4 py-3" style={{ backgroundColor: THEME_COLOR }}>
         <div className="flex justify-between items-center">
@@ -136,12 +142,17 @@ export default function Rooms() {
       {/* Search Bar */}
       <div className="px-3 py-2" style={{ backgroundColor: BG_DARK }}>
         <div className="relative">
-          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+          <FiSearch
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+            size={18}
+          />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={activeTab === "users" ? "Search users..." : "Search chats..."}
+            placeholder={
+              activeTab === "users" ? "Search users..." : "Search chats..."
+            }
             className="w-full pl-10 pr-4 py-2 text-gray-200 rounded-lg focus:outline-none placeholder-gray-500"
             style={{ backgroundColor: BG_CARD }}
           />
@@ -187,7 +198,10 @@ export default function Rooms() {
         {/* Users Tab - Show all registered users */}
         {activeTab === "users" && (
           <>
-            <div className="px-4 py-2 text-gray-400 text-sm" style={{ backgroundColor: BG_CARD }}>
+            <div
+              className="px-4 py-2 text-gray-400 text-sm"
+              style={{ backgroundColor: BG_CARD }}
+            >
               All Registered Users - Tap to start chat
             </div>
             {filteredUsers.map((u) => (
@@ -207,7 +221,9 @@ export default function Rooms() {
 
                 {/* User Info */}
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-white font-medium truncate">{u.username}</h3>
+                  <h3 className="text-white font-medium truncate">
+                    {u.username}
+                  </h3>
                   <p className="text-sm text-gray-400 truncate">{u.email}</p>
                 </div>
 
@@ -226,7 +242,9 @@ export default function Rooms() {
                 >
                   <FiUser className="text-4xl text-gray-500" />
                 </div>
-                <p className="text-gray-400">{searchQuery ? "No users found" : "No users available"}</p>
+                <p className="text-gray-400">
+                  {searchQuery ? "No users found" : "No users available"}
+                </p>
               </div>
             )}
           </>
@@ -235,7 +253,10 @@ export default function Rooms() {
         {/* Chats Tab - Show existing conversations */}
         {activeTab === "chats" && (
           <>
-            <div className="px-4 py-2 text-gray-400 text-sm" style={{ backgroundColor: BG_CARD }}>
+            <div
+              className="px-4 py-2 text-gray-400 text-sm"
+              style={{ backgroundColor: BG_CARD }}
+            >
               Your Conversations
             </div>
             {filteredChats.map((chat) => (
@@ -256,13 +277,19 @@ export default function Rooms() {
                 {/* Chat Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-baseline">
-                    <h3 className="text-white font-medium truncate">{chat.name}</h3>
+                    <h3 className="text-white font-medium truncate">
+                      {chat.name}
+                    </h3>
                     <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
-                      {formatLastSeen(chat.lastMessage?.timestamp || chat.createdAt)}
+                      {formatLastSeen(
+                        chat.lastMessage?.timestamp || chat.createdAt
+                      )}
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
-                    {chat.lastMessage && <FiCheck className="text-gray-500" size={14} />}
+                    {chat.lastMessage && (
+                      <FiCheck className="text-gray-500" size={14} />
+                    )}
                     <p className="text-sm text-gray-400 truncate">
                       {chat.lastMessage?.content || "Tap to start chatting"}
                     </p>
@@ -279,8 +306,12 @@ export default function Rooms() {
                 >
                   <FiMessageCircle className="text-4xl text-gray-500" />
                 </div>
-                <p className="text-gray-400">{searchQuery ? "No chats found" : "No chats yet"}</p>
-                <p className="text-gray-500 text-sm mt-1">Go to Users tab to start a new chat</p>
+                <p className="text-gray-400">
+                  {searchQuery ? "No chats found" : "No chats yet"}
+                </p>
+                <p className="text-gray-500 text-sm mt-1">
+                  Go to Users tab to start a new chat
+                </p>
               </div>
             )}
           </>
@@ -296,7 +327,9 @@ export default function Rooms() {
               <FiPhone className="text-4xl text-gray-500" />
             </div>
             <p className="text-gray-400">No recent calls</p>
-            <p className="text-gray-500 text-sm mt-1">Your call history will appear here</p>
+            <p className="text-gray-500 text-sm mt-1">
+              Your call history will appear here
+            </p>
           </div>
         )}
       </div>
@@ -314,11 +347,16 @@ export default function Rooms() {
             {user?.username?.charAt(0).toUpperCase()}
           </div>
           <div>
-            <span className="text-white font-medium block">{user?.username}</span>
+            <span className="text-white font-medium block">
+              {user?.username}
+            </span>
             <span className="text-gray-400 text-xs">Online</span>
           </div>
         </div>
-        <button onClick={handleLogout} className="text-gray-400 hover:text-white transition-colors">
+        <button
+          onClick={handleLogout}
+          className="text-gray-400 hover:text-white transition-colors"
+        >
           <FiSettings size={20} />
         </button>
       </div>
