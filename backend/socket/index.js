@@ -111,9 +111,18 @@ const initializeSocket = (io) => {
         });
         await message.save();
 
+        // Update last message in room
+        await Room.findByIdAndUpdate(roomId, {
+          lastMessage: {
+            content,
+            timestamp: message.timestamp,
+            sender: socket.userId,
+          },
+        });
+
         // Broadcast message to room
         io.to(roomId).emit("new-message", {
-          id: message._id,
+          _id: message._id,
           sender: socket.userId,
           senderName: username,
           content,

@@ -64,6 +64,8 @@ export const authAPI = {
  */
 export const roomsAPI = {
   getAll: () => api.get("/api/rooms"),
+  getUsers: () => api.get("/api/rooms/users"),
+  startDirectChat: (userId) => api.post(`/api/rooms/direct/${userId}`),
   create: (data) => api.post("/api/rooms", data),
   getMessages: (roomId) => api.get(`/api/rooms/${roomId}/messages`),
   deleteMessage: (roomId, messageId, forEveryone) =>

@@ -4,16 +4,16 @@ import { useAuth } from "../contexts/AuthContext";
 import { roomsAPI } from "../utils/api";
 import {
   FiPlus,
-  FiUsers,
   FiLogOut,
   FiSearch,
   FiMoreVertical,
   FiPhone,
-  FiCamera,
   FiMessageCircle,
   FiSettings,
   FiCheck,
-  FiClock,
+  FiX,
+  FiUser,
+  FiArrowLeft,
 } from "react-icons/fi";
 import { format, isToday, isYesterday } from "date-fns";
 
@@ -24,13 +24,12 @@ const BG_DARK = "#0a1929";
 const BG_CARD = "#0d2137";
 
 export default function Rooms() {
-  const [rooms, setRooms] = useState([]);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [roomName, setRoomName] = useState("");
-  const [roomDescription, setRoomDescription] = useState("");
+  const [chats, setChats] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [userSearchQuery, setUserSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("chats");
 
   const { user, logout, isAuthenticated } = useAuth();
@@ -42,32 +41,41 @@ export default function Rooms() {
       return;
     }
 
-    fetchRooms();
+    fetchChats();
   }, [isAuthenticated, router]);
 
-  const fetchRooms = async () => {
+  const fetchChats = async () => {
     try {
       const response = await roomsAPI.getAll();
-      setRooms(response.data);
+      setChats(response.data);
       setLoading(false);
     } catch (error) {
-      console.error("Error fetching rooms:", error);
+      console.error("Error fetching chats:", error);
       setLoading(false);
     }
   };
 
-  const handleCreateRoom = async (e) => {
-    e.preventDefault();
-    setError("");
-
+  const fetchUsers = async () => {
     try {
-      await roomsAPI.create({ name: roomName, description: roomDescription });
-      setRoomName("");
-      setRoomDescription("");
-      setShowCreateModal(false);
-      fetchRooms();
+      const response = await roomsAPI.getUsers();
+      setUsers(response.data);
     } catch (error) {
-      setError(error.response?.data?.message || "Failed to create room");
+      console.error("Error fetching users:", error);
+    }
+  };
+
+  const handleOpenNewChat = () => {
+    fetchUsers();
+    setShowNewChatModal(true);
+  };
+
+  const handleStartChat = async (targetUserId) => {
+    try {
+      const response = await roomsAPI.startDirectChat(targetUserId);
+      setShowNewChatModal(false);
+      router.push(`/chat/${response.data._id}`);
+    } catch (error) {
+      console.error("Error starting chat:", error);
     }
   };
 
@@ -84,8 +92,14 @@ export default function Rooms() {
     return format(d, "dd/MM/yy");
   };
 
-  const filteredRooms = rooms.filter((room) =>
-    room.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredChats = chats.filter((chat) =>
+    chat.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredUsers = users.filter(
+    (u) =>
+      u.username.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+      u.email.toLowerCase().includes(userSearchQuery.toLowerCase())
   );
 
   if (loading) {
@@ -111,31 +125,21 @@ export default function Rooms() {
       style={{ backgroundColor: BG_DARK }}
     >
       {/* Header */}
-      <div className="px-4 py-3" style={{ backgroundColor: BG_CARD }}>
+      <div className="px-4 py-3" style={{ backgroundColor: THEME_COLOR }}>
         <div className="flex justify-between items-center">
           <h1 className="text-xl font-bold text-white">Blue Sea Chat</h1>
           <div className="flex items-center gap-4">
-            <button className="text-gray-400 hover:text-white transition-colors">
-              <FiCamera size={20} />
-            </button>
-            <button className="text-gray-400 hover:text-white transition-colors">
+            <button className="text-white/80 hover:text-white transition-colors">
               <FiSearch size={20} />
             </button>
             <div className="relative group">
-              <button className="text-gray-400 hover:text-white transition-colors">
+              <button className="text-white/80 hover:text-white transition-colors">
                 <FiMoreVertical size={20} />
               </button>
               <div
                 className="absolute right-0 top-full mt-2 rounded-lg shadow-xl py-2 w-48 hidden group-hover:block z-50"
                 style={{ backgroundColor: BG_CARD }}
               >
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="w-full px-4 py-2 text-left text-gray-200 hover:bg-white/10 flex items-center gap-3"
-                >
-                  <FiPlus size={16} />
-                  New group
-                </button>
                 <button
                   onClick={handleLogout}
                   className="w-full px-4 py-2 text-left text-gray-200 hover:bg-white/10 flex items-center gap-3"
@@ -160,7 +164,7 @@ export default function Rooms() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search or start new chat"
+            placeholder="Search chats..."
             className="w-full pl-10 pr-4 py-2 text-gray-200 rounded-lg focus:outline-none placeholder-gray-500"
             style={{ backgroundColor: BG_CARD }}
           />
@@ -172,13 +176,9 @@ export default function Rooms() {
         <button
           onClick={() => setActiveTab("chats")}
           className={`flex-1 py-3 text-center font-medium transition-colors ${
-            activeTab === "chats" ? "border-b-2" : "text-gray-400"
+            activeTab === "chats" ? "border-b-2 text-white" : "text-gray-400"
           }`}
-          style={
-            activeTab === "chats"
-              ? { color: THEME_COLOR, borderColor: THEME_COLOR }
-              : {}
-          }
+          style={activeTab === "chats" ? { borderColor: THEME_COLOR } : {}}
         >
           <FiMessageCircle className="inline mr-2" />
           Chats
@@ -186,13 +186,9 @@ export default function Rooms() {
         <button
           onClick={() => setActiveTab("calls")}
           className={`flex-1 py-3 text-center font-medium transition-colors ${
-            activeTab === "calls" ? "border-b-2" : "text-gray-400"
+            activeTab === "calls" ? "border-b-2 text-white" : "text-gray-400"
           }`}
-          style={
-            activeTab === "calls"
-              ? { color: THEME_COLOR, borderColor: THEME_COLOR }
-              : {}
-          }
+          style={activeTab === "calls" ? { borderColor: THEME_COLOR } : {}}
         >
           <FiPhone className="inline mr-2" />
           Calls
@@ -201,10 +197,10 @@ export default function Rooms() {
 
       {/* Chats List */}
       <div className="flex-1 overflow-y-auto">
-        {filteredRooms.map((room) => (
+        {filteredChats.map((chat) => (
           <div
-            key={room._id}
-            onClick={() => router.push(`/chat/${room._id}`)}
+            key={chat._id}
+            onClick={() => router.push(`/chat/${chat._id}`)}
             className="flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors border-b hover:bg-white/5"
             style={{ borderColor: BG_CARD }}
           >
@@ -213,28 +209,32 @@ export default function Rooms() {
               className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
               style={{ backgroundColor: THEME_COLOR }}
             >
-              {room.name.charAt(0).toUpperCase()}
+              {chat.name?.charAt(0).toUpperCase() || "?"}
             </div>
 
             {/* Chat Info */}
             <div className="flex-1 min-w-0">
               <div className="flex justify-between items-baseline">
-                <h3 className="text-white font-medium truncate">{room.name}</h3>
+                <h3 className="text-white font-medium truncate">{chat.name}</h3>
                 <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
-                  {formatLastSeen(room.updatedAt || room.createdAt)}
+                  {formatLastSeen(
+                    chat.lastMessage?.timestamp || chat.createdAt
+                  )}
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <FiCheck className="text-gray-500" size={14} />
+                {chat.lastMessage && (
+                  <FiCheck className="text-gray-500" size={14} />
+                )}
                 <p className="text-sm text-gray-400 truncate">
-                  {room.description || "Tap to start chatting"}
+                  {chat.lastMessage?.content || "Tap to start chatting"}
                 </p>
               </div>
             </div>
           </div>
         ))}
 
-        {filteredRooms.length === 0 && (
+        {filteredChats.length === 0 && (
           <div className="text-center py-12">
             <div
               className="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center"
@@ -246,7 +246,7 @@ export default function Rooms() {
               {searchQuery ? "No chats found" : "No chats yet"}
             </p>
             <p className="text-gray-500 text-sm mt-1">
-              Create a new group to start chatting
+              Tap the button below to start a new chat
             </p>
           </div>
         )}
@@ -254,84 +254,95 @@ export default function Rooms() {
 
       {/* Floating Action Button */}
       <button
-        onClick={() => setShowCreateModal(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-colors"
+        onClick={handleOpenNewChat}
+        className="fixed bottom-20 right-6 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105"
         style={{ backgroundColor: THEME_COLOR }}
       >
         <FiMessageCircle size={24} className="text-white" />
       </button>
 
-      {/* Create Room Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
+      {/* New Chat Modal - Select User */}
+      {showNewChatModal && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col"
+          style={{ backgroundColor: BG_DARK }}
+        >
+          {/* Modal Header */}
           <div
-            className="rounded-xl max-w-md w-full overflow-hidden"
-            style={{ backgroundColor: BG_CARD }}
+            className="px-4 py-3 flex items-center gap-4"
+            style={{ backgroundColor: THEME_COLOR }}
           >
-            {/* Modal Header */}
-            <div
-              className="px-4 py-4 flex items-center gap-4"
-              style={{ backgroundColor: THEME_COLOR }}
+            <button
+              onClick={() => setShowNewChatModal(false)}
+              className="text-white hover:bg-white/10 p-2 rounded-full"
             >
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="text-white hover:bg-white/10 p-1 rounded-full"
-              >
-                ✕
-              </button>
-              <h3 className="text-white font-semibold text-lg">New Group</h3>
+              <FiArrowLeft size={22} />
+            </button>
+            <div>
+              <h3 className="text-white font-semibold text-lg">New Chat</h3>
+              <p className="text-white/70 text-sm">{users.length} contacts</p>
             </div>
+          </div>
 
-            {/* Modal Body */}
-            <form onSubmit={handleCreateRoom} className="p-4">
-              {error && (
-                <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded-lg text-red-400 text-sm">
-                  {error}
-                </div>
-              )}
+          {/* Search Users */}
+          <div className="px-3 py-2">
+            <div className="relative">
+              <FiSearch
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+                size={18}
+              />
+              <input
+                type="text"
+                value={userSearchQuery}
+                onChange={(e) => setUserSearchQuery(e.target.value)}
+                placeholder="Search users..."
+                className="w-full pl-10 pr-4 py-2 text-gray-200 rounded-lg focus:outline-none placeholder-gray-500"
+                style={{ backgroundColor: BG_CARD }}
+                autoFocus
+              />
+            </div>
+          </div>
 
-              {/* Group Icon */}
-              <div className="flex justify-center mb-6">
+          {/* Users List */}
+          <div className="flex-1 overflow-y-auto">
+            {filteredUsers.map((u) => (
+              <div
+                key={u._id}
+                onClick={() => handleStartChat(u._id)}
+                className="flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors border-b hover:bg-white/5"
+                style={{ borderColor: BG_CARD }}
+              >
+                {/* Avatar */}
                 <div
-                  className="w-24 h-24 rounded-full flex items-center justify-center"
+                  className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
                   style={{ backgroundColor: THEME_DARK }}
                 >
-                  <FiCamera size={32} className="text-white" />
+                  {u.username.charAt(0).toUpperCase()}
+                </div>
+
+                {/* User Info */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-white font-medium truncate">
+                    {u.username}
+                  </h3>
+                  <p className="text-sm text-gray-400 truncate">{u.email}</p>
                 </div>
               </div>
+            ))}
 
-              <div className="space-y-4">
-                <div>
-                  <input
-                    type="text"
-                    value={roomName}
-                    onChange={(e) => setRoomName(e.target.value)}
-                    placeholder="Group name"
-                    className="w-full px-0 py-3 bg-transparent text-white border-b-2 focus:outline-none placeholder-gray-400"
-                    style={{ borderColor: THEME_COLOR }}
-                    required
-                  />
+            {filteredUsers.length === 0 && (
+              <div className="text-center py-12">
+                <div
+                  className="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center"
+                  style={{ backgroundColor: BG_CARD }}
+                >
+                  <FiUser className="text-4xl text-gray-500" />
                 </div>
-                <div>
-                  <input
-                    type="text"
-                    value={roomDescription}
-                    onChange={(e) => setRoomDescription(e.target.value)}
-                    placeholder="Group description (optional)"
-                    className="w-full px-0 py-3 bg-transparent text-white border-b border-gray-600 focus:border-b-2 focus:outline-none placeholder-gray-400"
-                    style={{ focusBorderColor: THEME_COLOR }}
-                  />
-                </div>
+                <p className="text-gray-400">
+                  {userSearchQuery ? "No users found" : "No users available"}
+                </p>
               </div>
-
-              <button
-                type="submit"
-                className="w-full mt-6 py-3 text-white font-semibold rounded-lg transition-colors"
-                style={{ backgroundColor: THEME_COLOR }}
-              >
-                Create Group
-              </button>
-            </form>
+            )}
           </div>
         </div>
       )}

@@ -2,22 +2,42 @@ const express = require("express");
 const Room = require("../models/Room");
 const Message = require("../models/Message");
 const CallLog = require("../models/CallLog");
+const User = require("../models/User");
 const authMiddleware = require("../middleware/auth");
 
 const router = express.Router();
 
 /**
  * @route   GET /api/rooms
- * @desc    Get all rooms
+ * @desc    Get all direct chats for the current user
  * @access  Private
  */
 router.get("/", authMiddleware, async (req, res) => {
   try {
-    const rooms = await Room.find()
+    const rooms = await Room.find({
+      participants: req.userId,
+    })
+      .populate("participants", "username email")
       .populate("createdBy", "username")
-      .sort({ createdAt: -1 });
+      .populate("lastMessage.sender", "username")
+      .sort({ "lastMessage.timestamp": -1, createdAt: -1 });
 
-    res.json(rooms);
+    // For direct chats, show the other person's name
+    const formattedRooms = rooms.map((room) => {
+      const roomObj = room.toObject();
+      if (room.isDirectChat && room.participants.length === 2) {
+        const otherUser = room.participants.find(
+          (p) => p._id.toString() !== req.userId
+        );
+        if (otherUser) {
+          roomObj.name = otherUser.username;
+          roomObj.otherUser = otherUser;
+        }
+      }
+      return roomObj;
+    });
+
+    res.json(formattedRooms);
   } catch (error) {
     console.error("Get rooms error:", error);
     res.status(500).json({ message: "Server error" });
@@ -25,15 +45,122 @@ router.get("/", authMiddleware, async (req, res) => {
 });
 
 /**
+ * @route   GET /api/rooms/users
+ * @desc    Get all users for starting a new chat
+ * @access  Private
+ */
+router.get("/users", authMiddleware, async (req, res) => {
+  try {
+    const users = await User.find({ _id: { $ne: req.userId } })
+      .select("username email createdAt")
+      .sort({ username: 1 });
+
+    res.json(users);
+  } catch (error) {
+    console.error("Get users error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+/**
+ * @route   POST /api/rooms/direct/:userId
+ * @desc    Start or get a direct chat with a user
+ * @access  Private
+ */
+router.post("/direct/:userId", authMiddleware, async (req, res) => {
+  try {
+    const targetUserId = req.params.userId;
+
+    // Check if target user exists
+    const targetUser = await User.findById(targetUserId);
+    if (!targetUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Check if direct chat already exists between these two users
+    let room = await Room.findOne({
+      isDirectChat: true,
+      participants: { $all: [req.userId, targetUserId], $size: 2 },
+    }).populate("participants", "username email");
+
+    if (room) {
+      // Return existing chat
+      const roomObj = room.toObject();
+      const otherUser = room.participants.find(
+        (p) => p._id.toString() !== req.userId
+      );
+      roomObj.name = otherUser?.username;
+      roomObj.otherUser = otherUser;
+      return res.json(roomObj);
+    }
+
+    // Create new direct chat
+    room = new Room({
+      isDirectChat: true,
+      createdBy: req.userId,
+      participants: [req.userId, targetUserId],
+    });
+
+    await room.save();
+    await room.populate("participants", "username email");
+
+    const roomObj = room.toObject();
+    roomObj.name = targetUser.username;
+    roomObj.otherUser = { _id: targetUser._id, username: targetUser.username };
+
+    res.status(201).json(roomObj);
+  } catch (error) {
+    console.error("Create direct chat error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+/**
  * @route   POST /api/rooms
- * @desc    Create a new room
+ * @desc    Create a new room (legacy support)
  * @access  Private
  */
 router.post("/", authMiddleware, async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, targetUserId } = req.body;
 
-    // Check if room already exists
+    // If targetUserId is provided, create a direct chat
+    if (targetUserId) {
+      const targetUser = await User.findById(targetUserId);
+      if (!targetUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Check if direct chat already exists
+      let room = await Room.findOne({
+        isDirectChat: true,
+        participants: { $all: [req.userId, targetUserId], $size: 2 },
+      }).populate("participants", "username email");
+
+      if (room) {
+        const roomObj = room.toObject();
+        const otherUser = room.participants.find(
+          (p) => p._id.toString() !== req.userId
+        );
+        roomObj.name = otherUser?.username;
+        return res.json(roomObj);
+      }
+
+      room = new Room({
+        isDirectChat: true,
+        createdBy: req.userId,
+        participants: [req.userId, targetUserId],
+      });
+
+      await room.save();
+      await room.populate("participants", "username email");
+
+      const roomObj = room.toObject();
+      roomObj.name = targetUser.username;
+      return res.status(201).json(roomObj);
+    }
+
+    // Legacy: Create named room
     let room = await Room.findOne({ name });
     if (room) {
       return res.status(400).json({ message: "Room already exists" });
@@ -42,6 +169,7 @@ router.post("/", authMiddleware, async (req, res) => {
     room = new Room({
       name,
       description,
+      isDirectChat: false,
       createdBy: req.userId,
       participants: [req.userId],
     });
