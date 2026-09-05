@@ -23,7 +23,10 @@ import {
   announceViewOnceOpened,
   removeAllListeners,
 } from "../../utils/socket";
-import WebRTCManager, { setupWebRTCSignaling } from "../../utils/webrtc";
+import WebRTCManager, {
+  setupWebRTCSignaling,
+  hasTurnConfigured,
+} from "../../utils/webrtc";
 import MessageBubble from "../../components/MessageBubble";
 import Composer from "../../components/Composer";
 import {
@@ -90,6 +93,9 @@ export default function ChatRoom() {
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [remoteStreams, setRemoteStreams] = useState(new Map());
+  const [localStream, setLocalStream] = useState(null);
+  // Set when the browser refuses to start playback without a gesture
+  const [audioBlocked, setAudioBlocked] = useState(false);
 
   // UI state
   const [showMenu, setShowMenu] = useState(false);
@@ -165,20 +171,102 @@ export default function ChatRoom() {
     setCallState(CALL_ACTIVE);
     setCallStatusText("Connected");
 
-    // A dedicated audio element keeps voice working even in a video call
-    // where the <video> element is muted or not yet mounted.
-    if (remoteAudioRef.current && stream.getAudioTracks().length > 0) {
-      remoteAudioRef.current.srcObject = stream;
-      remoteAudioRef.current.volume = 1.0;
-      remoteAudioRef.current
+    // A dedicated audio element carries the voice. The remote <video> is
+    // muted on purpose so the same audio is not decoded twice (echo) and so
+    // autoplay policy never blocks the video from rendering.
+    const audioEl = remoteAudioRef.current;
+    if (audioEl && stream.getAudioTracks().length > 0) {
+      // ontrack fires once per track, so this runs twice for a video call.
+      // Re-assigning srcObject would abort the play() already in flight and
+      // report a bogus "autoplay blocked".
+      if (audioEl.srcObject === stream) return;
+
+      audioEl.srcObject = stream;
+      audioEl.volume = 1.0;
+      audioEl.muted = false;
+      audioEl
         .play()
-        .then(() => console.log("✅ Remote audio playing"))
+        .then(() => {
+          setAudioBlocked(false);
+          console.log("✅ Remote audio playing");
+        })
         .catch((e) => {
+          // AbortError means a newer load superseded this play(), not a
+          // policy block - only a real block needs the tap-to-resume path.
+          if (e?.name === "AbortError") return;
           console.log("⚠️ Audio autoplay blocked:", e);
-          setCallStatusText("Tap anywhere to enable audio");
+          setAudioBlocked(true);
         });
     }
   }, []);
+
+  /**
+   * Autoplay was refused: the next tap anywhere is a user gesture, so retry.
+   */
+  useEffect(() => {
+    if (!audioBlocked) return undefined;
+
+    const resume = () => {
+      remoteAudioRef.current
+        ?.play()
+        .then(() => setAudioBlocked(false))
+        .catch(() => {});
+    };
+
+    document.addEventListener("click", resume);
+    document.addEventListener("touchstart", resume);
+    return () => {
+      document.removeEventListener("click", resume);
+      document.removeEventListener("touchstart", resume);
+    };
+  }, [audioBlocked]);
+
+  /**
+   * Attach the local preview once the call UI is actually mounted.
+   *
+   * Assigning srcObject straight after getUserMedia does not work on the
+   * answering side: the call view is still unmounted at that point, so the
+   * ref is null and the callee ends up staring at a black self-view.
+   */
+  useEffect(() => {
+    const el = localVideoRef.current;
+    if (!el || !localStream) return;
+    if (el.srcObject !== localStream) {
+      el.srcObject = localStream;
+      el.muted = true;
+      el.play().catch(() => {});
+    }
+  }, [localStream, callState, callType]);
+
+  /**
+   * ICE/peer-connection state, surfaced in the call header.
+   *
+   * "failed" here means the two peers gathered candidates but could not reach
+   * each other - the usual cause is a NAT that STUN alone cannot punch, which
+   * needs a TURN relay (NEXT_PUBLIC_TURN_URLS).
+   */
+  const handleConnectionState = useCallback((state) => {
+    console.log("🔗 Peer state:", state);
+    if (state === "failed") {
+      setCallStatusText(
+        hasTurnConfigured()
+          ? "Connection failed — network unreachable"
+          : "Connection failed — no TURN server configured"
+      );
+    } else if (state === "disconnected") {
+      setCallStatusText("Reconnecting…");
+    } else if (state === "connected" || state === "completed") {
+      setCallStatusText("Connected");
+    }
+  }, []);
+
+  const createManager = useCallback(() => {
+    const manager = new WebRTCManager();
+    manager.onConnectionStateChange = handleConnectionState;
+    setupWebRTCSignaling(manager, user.id, handleRemoteStream);
+    return manager;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, handleRemoteStream, handleConnectionState]);
 
   /* ------------------------------------------------------------------ *
    * Call teardown
@@ -224,6 +312,8 @@ export default function ChatRoom() {
     setAudioEnabled(true);
     setVideoEnabled(true);
     setRemoteStreams(new Map());
+    setLocalStream(null);
+    setAudioBlocked(false);
   }, []);
 
   const startCallTimer = useCallback(() => {
@@ -253,8 +343,7 @@ export default function ChatRoom() {
     const socket = getSocket();
     if (!socket || !socketReady) return;
 
-    webrtcManagerRef.current = new WebRTCManager();
-    setupWebRTCSignaling(webrtcManagerRef.current, user.id, handleRemoteStream);
+    webrtcManagerRef.current = createManager();
 
     fetchMessages();
     fetchRoomInfo();
@@ -640,12 +729,7 @@ export default function ChatRoom() {
 
     try {
       if (!webrtcManagerRef.current) {
-        webrtcManagerRef.current = new WebRTCManager();
-        setupWebRTCSignaling(
-          webrtcManagerRef.current,
-          user.id,
-          handleRemoteStream
-        );
+        webrtcManagerRef.current = createManager();
       }
 
       setCallType(type);
@@ -659,10 +743,7 @@ export default function ChatRoom() {
         video: type === "video",
       });
 
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-        localVideoRef.current.muted = true;
-      }
+      setLocalStream(stream);
 
       socket.emit("initiate-call", {
         roomId,
@@ -691,10 +772,7 @@ export default function ChatRoom() {
         video: type === "video",
       });
 
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-        localVideoRef.current.muted = true;
-      }
+      setLocalStream(stream);
 
       webrtcManagerRef.current.callId = incomingCall.callId;
 
@@ -1154,6 +1232,7 @@ export default function ChatRoom() {
                       }}
                       autoPlay
                       playsInline
+                      muted
                       className="w-full h-full object-cover rounded-lg"
                     />
                   ))}

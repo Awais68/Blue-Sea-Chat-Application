@@ -1,38 +1,53 @@
 import { getSocket } from "./socket";
 
 /**
- * WebRTC configuration with multiple STUN/TURN servers
- * IMPORTANT: For production, add your own TURN servers for better NAT traversal
+ * TURN servers come from env so the same build works on LAN and across NATs.
+ * NEXT_PUBLIC_TURN_URLS accepts a comma separated list, e.g.
+ *   turn:turn.example.com:3478,turns:turn.example.com:5349
+ * Without a TURN server a call between two different networks (mobile data,
+ * corporate wifi, symmetric NAT) will gather candidates, fail ICE and end up
+ * with no audio and no video - which is exactly what "connected but silent"
+ * looks like to the user.
  */
-const rtcConfig = {
-  iceServers: [
-    // Google STUN servers
+const buildIceServers = () => {
+  const servers = [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
     { urls: "stun:stun2.l.google.com:19302" },
     { urls: "stun:stun3.l.google.com:19302" },
     { urls: "stun:stun4.l.google.com:19302" },
-    
-    // Additional public STUN servers for redundancy
-    { urls: "stun:stun.services.mozilla.com" },
-    
-    // TURN server examples (replace with your own for production)
-    // Uncomment and configure with your TURN server credentials
-    // {
-    //   urls: "turn:your-turn-server.com:3478",
-    //   username: "your-username",
-    //   credential: "your-password"
-    // },
-    // {
-    //   urls: "turns:your-turn-server.com:5349",
-    //   username: "your-username",
-    //   credential: "your-password"
-    // }
-  ],
-  iceCandidatePoolSize: 10, // Pre-gather ICE candidates
-  bundlePolicy: "max-bundle", // Bundle all media into one connection
-  rtcpMuxPolicy: "require", // Multiplex RTP and RTCP
+  ];
+
+  const turnUrls = (process.env.NEXT_PUBLIC_TURN_URLS || "")
+    .split(",")
+    .map((u) => u.trim())
+    .filter(Boolean);
+
+  if (turnUrls.length > 0) {
+    servers.push({
+      urls: turnUrls,
+      username: process.env.NEXT_PUBLIC_TURN_USERNAME || "",
+      credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL || "",
+    });
+  } else if (typeof window !== "undefined") {
+    console.warn(
+      "\u26a0\ufe0f No TURN server configured (NEXT_PUBLIC_TURN_URLS). " +
+        "Calls will only work between peers that can reach each other via STUN."
+    );
+  }
+
+  return servers;
 };
+
+const rtcConfig = {
+  iceServers: buildIceServers(),
+  iceCandidatePoolSize: 10,
+  bundlePolicy: "max-bundle",
+  rtcpMuxPolicy: "require",
+};
+
+export const hasTurnConfigured = () =>
+  (process.env.NEXT_PUBLIC_TURN_URLS || "").trim().length > 0;
 
 /**
  * Optimal media constraints for audio and video
@@ -68,6 +83,9 @@ class WebRTCManager {
     this.remoteStreams = new Map(); // userId -> MediaStream
     this.pendingIceCandidates = new Map(); // userId -> [candidates]
     this.callId = null;
+    // Set by the UI so a failed/stalled connection is visible instead of
+    // silently producing a call with no audio and no video.
+    this.onConnectionStateChange = null;
   }
 
   /**
@@ -222,14 +240,19 @@ class WebRTCManager {
 
     // Handle ICE connection state changes
     peerConnection.oniceconnectionstatechange = () => {
-      console.log(`❄️ [ICE Connection State] ${userId}:`, peerConnection.iceConnectionState);
-      
-      if (peerConnection.iceConnectionState === "failed") {
-        console.error("❌ ICE connection failed! Attempting ICE restart...");
-        peerConnection.restartIce();
-      } else if (peerConnection.iceConnectionState === "disconnected") {
-        console.warn("⚠️ ICE connection disconnected");
-      } else if (peerConnection.iceConnectionState === "connected") {
+      const state = peerConnection.iceConnectionState;
+      console.log(`❄️ [ICE Connection State] ${userId}:`, state);
+
+      if (this.onConnectionStateChange) {
+        this.onConnectionStateChange(state, userId);
+      }
+
+      if (state === "failed") {
+        // Almost always a NAT traversal failure: both peers gathered
+        // candidates but none of the pairs are reachable. Only a TURN relay
+        // fixes that, so surface it rather than retrying forever.
+        console.error("❌ ICE connection failed - no reachable candidate pair.");
+      } else if (state === "connected" || state === "completed") {
         console.log("✅ ICE connection established!");
       }
     };
@@ -237,7 +260,11 @@ class WebRTCManager {
     // Handle connection state changes
     peerConnection.onconnectionstatechange = () => {
       console.log(`🔗 [Connection State] ${userId}:`, peerConnection.connectionState);
-      
+
+      if (this.onConnectionStateChange) {
+        this.onConnectionStateChange(peerConnection.connectionState, userId);
+      }
+
       if (peerConnection.connectionState === "connected") {
         console.log("✅ Peer connection fully established!");
       } else if (peerConnection.connectionState === "failed") {
