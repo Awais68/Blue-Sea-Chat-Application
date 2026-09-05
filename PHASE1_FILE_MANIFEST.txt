@@ -1,0 +1,281 @@
+═══════════════════════════════════════════════════════════════════════════════
+                    PHASE 1 - FILE MANIFEST
+═══════════════════════════════════════════════════════════════════════════════
+
+Location: /Client project/webRTC/backend/
+
+NEW FILES CREATED (4):
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ utils/token.js (184 lines)
+   Purpose: JWT token generation and verification
+   Functions:
+     - generateAccessToken(userId)
+     - generateRefreshToken(userId)
+     - generateTokens(userId)
+     - verifyRefreshToken(token)
+     - verifyAccessToken(token)
+   Constants:
+     - ACCESS_TOKEN_EXPIRY: "15m"
+     - REFRESH_TOKEN_EXPIRY: "7d"
+     - REFRESH_TOKEN_EXPIRY_MS: 604800000
+
+✅ utils/sanitize.js (65 lines)
+   Purpose: XSS prevention and input validation
+   Functions:
+     - sanitizeMessage(content): Strips dangerous HTML
+     - validateMessage(message): Validates type and length
+   Security:
+     - Whitelist-based HTML filtering
+     - 5000 character limit
+     - Script tag removal
+
+✅ middleware/rateLimiter.js (49 lines)
+   Purpose: Rate limiting for API endpoints
+   Exports:
+     - generalLimiter: 100 req/15min per IP
+     - authLimiter: 5 req/15min for auth endpoints
+     - messageLimiter: 50 msg/min per user
+   Features:
+     - IPv6 compatible
+     - Skip health check endpoint
+
+✅ scripts/migrateDatabase.js (54 lines)
+   Purpose: Create database indexes
+   Run with: npm run migrate
+   Creates:
+     - User indexes (email, username unique)
+     - Room indexes (participants, directChat compound)
+     - Message indexes (room+timestamp, sender+timestamp)
+   Output: Colored console logs on success/failure
+
+═══════════════════════════════════════════════════════════════════════════════
+
+MODIFIED FILES (7):
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ models/User.js
+   Added Fields:
+     - avatar: String
+     - status: enum ["online", "offline", "away"]
+     - lastSeen: Date
+     - customUID: String (unique)
+     - refreshTokens: [{ token, expiresAt }]
+     - lastLogin: Date
+   Added Methods:
+     - addRefreshToken(token, expiresAt)
+     - revokeToken(token)
+     - revokeAllTokens()
+   Added Static Methods:
+     - findByRefreshToken(token)
+   Changes: ~70 lines added
+
+✅ models/Message.js
+   Added Fields:
+     - mediaUrl: String
+     - thumbnailUrl: String
+     - duration: Number
+     - repliedTo: ObjectId ref
+     - reactions: [{ user, emoji, addedAt }]
+     - status: enum ["sent", "delivered", "read"]
+     - isEdited: Boolean
+     - editHistory: [{ content, editedAt }]
+     - mentions: [ObjectId]
+   Added Indexes:
+     - (room, timestamp) compound
+     - (room, isDeleted) compound
+   Added Plugin: mongoose-paginate-v2
+   Changes: ~50 lines added
+
+✅ models/Room.js
+   Added Fields:
+     - isGroup: Boolean
+     - groupId: ObjectId ref
+   Added Static Methods:
+     - findOrCreateDirectChat(userId1, userId2): Prevents duplicates
+   Added Indexes:
+     - (participants, isDirectChat) partial compound
+     - (participants, createdAt) compound
+   Changes: ~30 lines added
+
+✅ routes/auth.js (Completely Rewritten)
+   Endpoints:
+     - POST /signup: User registration with rate limiting
+     - POST /login: Authentication with token generation
+     - POST /refresh: Token rotation
+     - POST /logout: Single device logout
+     - POST /logout-all: All devices logout
+   Features:
+     - Rate limited (authLimiter)
+     - Token storage in database
+     - Refresh token rotation
+     - Token expiry validation
+   Changes: ~200 lines (complete rewrite)
+
+✅ routes/rooms.js (Significantly Enhanced)
+   Modified Endpoints:
+     - GET /: List user's rooms (unchanged)
+     - GET /users: List available users (unchanged)
+     - POST /direct/:userId: Use new findOrCreateDirectChat method
+     - GET /:roomId/messages: Added pagination with ?page=1&limit=50
+   New Features:
+     - Pagination metadata (hasNextPage, totalPages)
+     - Authorization checks (room membership)
+     - Max limit enforcement (100 items)
+     - Sorting (ascending/descending)
+   Changes: ~40 lines modified
+
+✅ socket/index.js (Enhanced send-message handler)
+   Imports:
+     - Added: const { sanitizeMessage, validateMessage } = require("../utils/sanitize")
+   Handler Changes (send-message):
+     - Verify room membership before saving
+     - Sanitize message content with xss package
+     - Validate message metadata
+     - Return delivery confirmation
+     - Emit status field in broadcast
+   Error Handling: Improved with socket.emit("error", {...})
+   Changes: ~30 lines modified
+
+✅ server.js (Added security & rate limiting)
+   Imports:
+     - Added: const helmet = require("helmet")
+     - Added: const { generalLimiter } = require("./middleware/rateLimiter")
+   Middleware Added:
+     - app.use(helmet()): Security headers
+     - app.use(generalLimiter): Rate limiting
+   Order:
+     - Helmet before CORS
+     - Rate limit after CORS
+     - Before routes
+   Changes: ~5 lines added
+
+═══════════════════════════════════════════════════════════════════════════════
+
+CONFIGURATION FILES UPDATED:
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ package.json
+   Added Scripts:
+     - "migrate": "node scripts/migrateDatabase.js"
+   Dependencies Added (via npm install):
+     - xss: ^1.0.15
+     - express-rate-limit: ^8.2.1
+     - helmet: ^8.1.0
+     - mongoose-paginate-v2: ^1.9.1
+
+✅ .env.example (Created)
+   Template for environment variables:
+     - MONGODB_URI
+     - JWT_SECRET
+     - REFRESH_TOKEN_SECRET
+     - PORT
+     - NODE_ENV
+     - FRONTEND_URL
+
+═══════════════════════════════════════════════════════════════════════════════
+
+DOCUMENTATION FILES CREATED:
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ PHASE1_COMPLETE.md (Summary of all changes)
+✅ PHASE1_TESTING_GUIDE.md (Detailed testing procedures)
+✅ PHASE1_FILE_MANIFEST.txt (This file)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+FILES NOT MODIFIED (Left as-is):
+═══════════════════════════════════════════════════════════════════════════════
+
+- middleware/auth.js (No changes needed)
+- models/CallLog.js (No changes needed)
+- routes/rooms.js - Most endpoints unchanged
+- config/db.js (No changes)
+- .env (Configuration file - not committed)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+BACKUP & GIT INFORMATION:
+═══════════════════════════════════════════════════════════════════════════════
+
+Files that should be committed to git:
+  ✅ All files in backend/ (models, routes, middleware, utils, scripts)
+  ✅ package.json (updated with new dependencies)
+  ✅ .env.example (template)
+
+Files NOT to commit:
+  ❌ .env (contains secrets)
+  ❌ node_modules/
+  ❌ .DS_Store
+  ❌ logs/
+
+Recommended commit message:
+  "Phase 1: Critical fixes (pagination, validation, tokens, indexes)"
+
+═══════════════════════════════════════════════════════════════════════════════
+
+DEPLOYMENT CHECKLIST:
+═══════════════════════════════════════════════════════════════════════════════
+
+Before going live:
+  [ ] npm install (completed ✅)
+  [ ] Set MONGODB_URI in .env
+  [ ] Set JWT_SECRET in .env
+  [ ] Run: npm run migrate
+  [ ] Test: npm run dev (check for errors)
+  [ ] Run: curl http://localhost:5001/health
+  [ ] Test signup/login endpoints
+  [ ] Test message pagination
+  [ ] Test rate limiting
+  [ ] Run security audit: npm audit
+
+═══════════════════════════════════════════════════════════════════════════════
+
+QUICK FILE REFERENCE:
+═══════════════════════════════════════════════════════════════════════════════
+
+Token Management:
+  → backend/utils/token.js
+  → backend/routes/auth.js
+  → backend/models/User.js
+
+Security:
+  → backend/utils/sanitize.js
+  → backend/middleware/rateLimiter.js
+  → backend/server.js
+
+Database:
+  → backend/models/Message.js (pagination)
+  → backend/models/Room.js (race condition)
+  → backend/scripts/migrateDatabase.js
+
+Real-time:
+  → backend/socket/index.js (validation)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+TOTAL CHANGES SUMMARY:
+═══════════════════════════════════════════════════════════════════════════════
+
+Files Created: 4
+Files Modified: 7
+Files Configured: 2
+Lines Added: ~500+
+Lines Modified: ~100+
+New Dependencies: 4
+New Endpoints: 3
+Critical Bugs Fixed: 6
+
+═══════════════════════════════════════════════════════════════════════════════
+
+NEXT ACTIONS:
+═══════════════════════════════════════════════════════════════════════════════
+
+1. cd backend
+2. npm run migrate
+3. npm run dev
+4. In another terminal: Follow PHASE1_TESTING_GUIDE.md
+5. If all tests pass: Commit to git
+6. Move to Phase 2 (database expansion)
+
+═══════════════════════════════════════════════════════════════════════════════
